@@ -42,7 +42,7 @@ export default function ActionDock({ activeMenu, setActiveMenu }: ActionDockProp
   };
 
   return (
-    <div className="px-3 pb-4 pt-2">
+    <div className="px-3 pt-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       <div className="flex items-center justify-around bg-white/80 backdrop-blur-md rounded-3xl px-2 py-3 shadow-lg">
         {ACTIONS.map(({ id, label, icon }) => (
           <button

@@ -384,16 +384,16 @@ export function touchPet(state: GameState): GameState {
 
 // 이미지 URL 상수 (CDN 경로)
 const IMG = {
-  basicmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/RBrtbsCkmilUWcQq.png',
-  powermon:     'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-  wizmon:       'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-  legendmon:    'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  lovelemon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/zzPifdWWMEajzDXR.png',
-  greenmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/usQQVZMdncKcOhXL.png',
-  dragonmon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/ifYxuvzHcVAhYLLe.png',
-  angelmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/KQIMCTGVeIYRgmsp.png',
-  magicmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fTgWcfvFGtHPQBxO.png',
-  forestmon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/nRiEzIQtNZoFcSnc.png',
+  basicmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/FEDWfUnGrASzcQTX.png',
+  powermon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/STjbGnGJYNoLIjDj.png',
+  wizmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/WfadPKybAKTJlkVV.png',
+  lovelemon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fWFhBofXQtCVQTOA.png',
+  greenmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/nXxFqVTYJtdiDiLY.png',
+  dragonmon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/IuOreVpGMVXbbMFn.png',
+  angelmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/UTLHzTDYCXbfbNkF.png',
+  magicmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/rvDmQaIFngZjhGkY.png',
+  forestmon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/xHnZoPRmRcFgeYof.png',
+  legendmon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/xwthZTeGQpJacnab.png',
 } as const;
 
 /** 캐릭터 이미지 URL 매핑 (종족별 진화 단계) */

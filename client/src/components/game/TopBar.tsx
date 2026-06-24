@@ -17,7 +17,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, u
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   return (
-    <div className="flex items-center justify-between px-4 pt-3 pb-1">
+    <div className="flex items-center justify-between px-4 pb-1" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
       {/* 로고 + 도감 */}
       <div className="flex items-center gap-2">
         <img

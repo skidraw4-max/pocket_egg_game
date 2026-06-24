@@ -31,23 +31,23 @@ export type SoundKey =
 
 export type BGMKey = 'main-room';
 
-/** 효과음 파일 경로 (manus-storage) */
+/** 효과음 파일 경로 */
 const SOUND_URLS: Record<SoundKey, string> = {
-  eating:   '/manus-storage/sfx-eating_3f6b0c86.wav',
-  playing:  '/manus-storage/sfx-playing_b0e85ebb.wav',
-  cleaning: '/manus-storage/sfx-cleaning_fccb1436.wav',
-  sleeping: '/manus-storage/sfx-sleeping_0a03d4b2.wav',
-  happy:    '/manus-storage/sfx-happy_36fc5e1b.wav',
-  hungry:   '/manus-storage/sfx-hungry_1ecc48db.wav',
-  dirty:    '/manus-storage/sfx-dirty_3923ea20.wav',
-  tired:    '/manus-storage/sfx-tired_815d4107.wav',
-  love:     '/manus-storage/sfx-love_30559d35.wav',
-  touch:    '/manus-storage/sfx-touch_5aae071d.wav',
+  eating:   '/sounds/sfx-eating.wav',
+  playing:  '/sounds/sfx-playing.wav',
+  cleaning: '/sounds/sfx-cleaning.wav',
+  sleeping: '/sounds/sfx-sleeping.wav',
+  happy:    '/sounds/sfx-happy.wav',
+  hungry:   '/sounds/sfx-hungry.wav',
+  dirty:    '/sounds/sfx-dirty.wav',
+  tired:    '/sounds/sfx-tired.wav',
+  love:     '/sounds/sfx-love.wav',
+  touch:    '/sounds/sfx-touch.wav',
 };
 
 /** 배경음악(BGM) 파일 경로 */
 const BGM_URLS: Record<BGMKey, string> = {
-  'main-room': '/manus-storage/bgm-main-room_2c8d5f4a.wav',
+  'main-room': '/sounds/bgm-main-room.wav',
 };
 
 interface UseSoundReturn {

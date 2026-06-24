@@ -11,17 +11,31 @@ import { useState } from "react";
 
 /** 타이틀 → 게임 화면 전환을 관리하는 래퍼 */
 function GameShell() {
-  const [gameStarted, setGameStarted] = useState(false);
+  // 최초 실행 여부: localStorage에 'pocket_egg_started' 키가 없으면 타이틀 표시
+  const [gameStarted, setGameStarted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('pocket_egg_started') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleStart = () => {
+    try {
+      localStorage.setItem('pocket_egg_started', 'true');
+    } catch { /* ignore */ }
+    setGameStarted(true);
+  };
 
   return (
     <div className="relative w-full h-full">
       {/* 게임 메인 화면 (항상 마운트, 타이틀 뒤에 대기) */}
       <Home />
 
-      {/* 타이틀 화면 (시작 전에만 표시) */}
+      {/* 타이틀 화면 (최초 실행 시에만 표시) */}
       {!gameStarted && (
         <div className="absolute inset-0 z-[200]">
-          <TitleScreen onStart={() => setGameStarted(true)} />
+          <TitleScreen onStart={handleStart} />
         </div>
       )}
     </div>
