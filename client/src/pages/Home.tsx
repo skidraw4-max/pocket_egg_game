@@ -16,6 +16,7 @@ import SleepOverlay from '@/components/game/SleepOverlay';
 import TopBar from '@/components/game/TopBar';
 import CollectionMenu from '@/components/game/CollectionMenu';
 import PetProfile from '@/components/game/PetProfile';
+import RoomDecor from '@/components/game/RoomDecor';
 
 export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile';
 
@@ -50,6 +51,9 @@ export default function Home() {
       />
       {/* 반투명 오버레이 */}
       <div className="absolute inset-0 bg-[oklch(0.98_0.015_80)]/20" />
+
+      {/* 가구 렌더링 레이어 */}
+      <RoomDecor furniture={state.room.furniture} />
 
       {/* 콘텐츠 레이어 */}
       <div className="relative z-10 flex flex-col h-full">
