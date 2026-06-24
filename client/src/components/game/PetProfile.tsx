@@ -4,14 +4,37 @@
  */
 import { useGame } from '@/contexts/GameContext';
 import { getCharacterImage } from '@/lib/gameState';
+import { useState, useRef } from 'react';
 
 interface PetProfileProps {
   onClose: () => void;
 }
 
 export default function PetProfile({ onClose }: PetProfileProps) {
-  const { state } = useGame();
+  const { state, rename } = useGame();
   const { pet, status } = state;
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(pet.name);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleNameEdit = () => {
+    setNameInput(pet.name);
+    setIsEditingName(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleNameConfirm = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed && trimmed !== pet.name) {
+      rename(trimmed);
+    }
+    setIsEditingName(false);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') handleNameConfirm();
+    if (e.key === 'Escape') setIsEditingName(false);
+  };
   const expPercent = Math.floor((pet.exp / pet.expToNext) * 100);
 
   const traits = [
@@ -67,7 +90,35 @@ export default function PetProfile({ onClose }: PetProfileProps) {
               {STAGE_LABEL[pet.stage] ?? pet.stage}
             </span>
           </div>
-          <div className="text-xl font-bold text-warm-brown">{pet.name}</div>
+          {/* 이름 (인라인 편집) */}
+          {isEditingName ? (
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <input
+                ref={inputRef}
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onKeyDown={handleNameKeyDown}
+                maxLength={12}
+                className="text-center text-lg font-bold text-warm-brown bg-white/80 border-2 border-peach rounded-xl px-2 py-0.5 w-36 outline-none"
+              />
+              <button
+                onClick={handleNameConfirm}
+                className="text-sm bg-peach text-white rounded-full w-7 h-7 flex items-center justify-center font-bold"
+              >✓</button>
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="text-sm bg-muted text-sub-brown rounded-full w-7 h-7 flex items-center justify-center"
+              >✕</button>
+            </div>
+          ) : (
+            <button
+              onClick={handleNameEdit}
+              className="flex items-center justify-center gap-1 group mt-1"
+            >
+              <span className="text-xl font-bold text-warm-brown">{pet.name}</span>
+              <span className="text-xs text-sub-brown/50 group-hover:text-peach transition-colors">✏️</span>
+            </button>
+          )}
           <div className="text-sm text-sub-brown">{pet.species} · Lv.{pet.level}</div>
           <div className="flex items-center justify-center gap-3 mt-1">
             <span className="text-xs text-sub-brown">친밀도 ♥ {Math.floor(pet.intimacy)}</span>

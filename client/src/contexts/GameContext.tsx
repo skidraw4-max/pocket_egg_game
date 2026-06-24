@@ -17,6 +17,7 @@ import {
   playWithPet,
   purchaseItem,
   PurchaseResult,
+  renamePet,
   saveGame,
   ShopItemDef,
   sleepPet,
@@ -34,6 +35,7 @@ interface GameContextType {
   sleep: () => void;
   touch: () => void;
   purchase: (item: ShopItemDef) => PurchaseResult;
+  rename: (newName: string) => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -156,6 +158,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const rename = useCallback((newName: string) => {
+    setState(prev => renamePet(prev, newName));
+  }, []);
+
   const confirmEvolution = useCallback(() => {
     if (!pendingEvolution) return;
     setState(prev => evolvePet(prev, pendingEvolution));
@@ -176,6 +182,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         sleep,
         touch,
         purchase,
+        rename,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

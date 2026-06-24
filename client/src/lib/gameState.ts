@@ -465,6 +465,18 @@ function getDominantTrait(traits: GrowthTraits): string {
   return entries[0][0];
 }
 
+// ===== 이름 변경 =====
+
+export function renamePet(state: GameState, newName: string): GameState {
+  const trimmed = newName.trim();
+  if (!trimmed || trimmed.length > 12) return state;
+  return {
+    ...state,
+    pet: { ...state.pet, name: trimmed },
+    lastSaveTime: Date.now(),
+  };
+}
+
 // ===== 상점 구매 =====
 
 export interface ShopItemDef {
