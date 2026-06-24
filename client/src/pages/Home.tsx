@@ -66,7 +66,7 @@ export default function Home() {
           gems={state.gems}
           onCollectionClick={() => setActiveMenu('collection')}
           onQuestClick={() => setActiveMenu('quest')}
-          onHallClick={state.pet.stage === 'adult' && state.pet.species === '레전드몬' ? () => setActiveMenu('hall') : undefined}
+          onHallClick={(state.pet.stage === 'adult' && state.pet.species === '레전드몬') || state.pet.stage === 'mythic' ? () => setActiveMenu('hall') : undefined}
           unclaimedMissions={
             state.missions.missions.filter(m => m.completed && !m.claimed).length
           }

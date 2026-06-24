@@ -99,6 +99,39 @@ const ALL_MONS: MonEntry[] = [
     description: '모든 속성을 초월한 전설의 반려몬',
     traitHint: 'Lv.30 최종 진화',
   },
+  // Mythic 4종
+  {
+    name: '인페르노몬',
+    stage: 'mythic' as any,
+    stageLabel: '전설',
+    icon: '🔥',
+    description: '화염을 지배하는 궁극의 드래곤 반려몬',
+    traitHint: '레전드몬 Lv.50 + 힘 성향 우세',
+  },
+  {
+    name: '오라클몬',
+    stage: 'mythic' as any,
+    stageLabel: '전설',
+    icon: '🔮',
+    description: '우주의 진리를 꿰뚫는 전지전능한 반려몬',
+    traitHint: '레전드몬 Lv.50 + 지능 성향 우세',
+  },
+  {
+    name: '세라피몬',
+    stage: 'mythic' as any,
+    stageLabel: '전설',
+    icon: '✨',
+    description: '신성한 빛을 발하는 최고의 천사 반려몬',
+    traitHint: '레전드몬 Lv.50 + 매력 성향 우세',
+  },
+  {
+    name: '가이아몬',
+    stage: 'mythic' as any,
+    stageLabel: '전설',
+    icon: '🌍',
+    description: '대지의 생명력을 담은 자연의 신 반려몬',
+    traitHint: '레전드몬 Lv.50 + 활력 성향 우세',
+  },
 ];
 
 // 단계별 그룹 정의
@@ -107,6 +140,7 @@ const STAGE_GROUPS = [
   { label: '어린이 (1차 진화)', stageLabel: '어린이', color: 'text-mint' },
   { label: '청소년 (2차 진화)', stageLabel: '청소년', color: 'text-[oklch(0.7_0.12_260)]' },
   { label: '성체 (최종 진화)', stageLabel: '성체', color: 'text-[oklch(0.65_0.15_30)]' },
+  { label: '전설 (2차 최종 진화) ✨', stageLabel: '전설', color: 'text-[oklch(0.6_0.2_50)]' },
 ];
 
 export default function CollectionMenu({ onClose }: CollectionMenuProps) {

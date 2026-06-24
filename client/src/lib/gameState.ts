@@ -14,7 +14,7 @@ export interface PetStatus {
 
 export interface PetProfile {
   name: string;
-  stage: 'egg' | 'baby' | 'child' | 'teen' | 'adult';
+  stage: 'egg' | 'baby' | 'child' | 'teen' | 'adult' | 'mythic';
   species: string;
   level: number;
   exp: number;
@@ -395,20 +395,29 @@ const IMG = {
   magicmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/rvDmQaIFngZjhGkY.png',
   forestmon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/xHnZoPRmRcFgeYof.png',
   legendmon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/xwthZTeGQpJacnab.png',
+  infernoMon: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/psrDEOXPxMgEYxtQ.png',
+  oracleMon:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/ZoesjxkHeLizQpnU.png',
+  seraphiMon: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fNFDRbQLBvSUvpML.png',
+  gaiaMon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/lRQUHXUZfwdFaQnH.png',
 } as const;
 
 /** 캐릭터 이미지 URL 매핑 (종족별 진화 단계) */
 export const CHARACTER_IMAGES: Record<string, Record<PetProfile['stage'], string>> = {
-  '기본몬': { egg: IMG.egg, baby: IMG.basicmon, child: IMG.basicmon, teen: IMG.basicmon, adult: IMG.basicmon },
-  '파워몬': { egg: IMG.powermon, baby: IMG.powermon, child: IMG.powermon, teen: IMG.powermon, adult: IMG.powermon },
-  '위즈몬': { egg: IMG.wizmon,   baby: IMG.wizmon,   child: IMG.wizmon,   teen: IMG.wizmon,   adult: IMG.wizmon   },
-  '레전드몬': { egg: IMG.legendmon, baby: IMG.legendmon, child: IMG.legendmon, teen: IMG.legendmon, adult: IMG.legendmon },
-  '러블리몬': { egg: IMG.lovelemon, baby: IMG.lovelemon, child: IMG.lovelemon, teen: IMG.lovelemon, adult: IMG.lovelemon },
-  '그린몬': { egg: IMG.greenmon,  baby: IMG.greenmon,  child: IMG.greenmon,  teen: IMG.greenmon,  adult: IMG.greenmon  },
-  '드래곤몬': { egg: IMG.dragonmon, baby: IMG.dragonmon, child: IMG.dragonmon, teen: IMG.dragonmon, adult: IMG.dragonmon },
-  '엔젤몬': { egg: IMG.angelmon, baby: IMG.angelmon, child: IMG.angelmon, teen: IMG.angelmon, adult: IMG.angelmon },
-  '매직몬': { egg: IMG.magicmon,  baby: IMG.magicmon,  child: IMG.magicmon,  teen: IMG.magicmon,  adult: IMG.magicmon  },
-  '포레스몬': { egg: IMG.forestmon, baby: IMG.forestmon, child: IMG.forestmon, teen: IMG.forestmon, adult: IMG.forestmon },
+  '기본몬': { egg: IMG.egg, baby: IMG.basicmon, child: IMG.basicmon, teen: IMG.basicmon, adult: IMG.basicmon, mythic: IMG.basicmon },
+  '파워몬': { egg: IMG.powermon, baby: IMG.powermon, child: IMG.powermon, teen: IMG.powermon, adult: IMG.powermon, mythic: IMG.powermon },
+  '위즈몬': { egg: IMG.wizmon,   baby: IMG.wizmon,   child: IMG.wizmon,   teen: IMG.wizmon,   adult: IMG.wizmon,   mythic: IMG.wizmon   },
+  '레전드몬': { egg: IMG.legendmon, baby: IMG.legendmon, child: IMG.legendmon, teen: IMG.legendmon, adult: IMG.legendmon, mythic: IMG.legendmon },
+  '러블리몬': { egg: IMG.lovelemon, baby: IMG.lovelemon, child: IMG.lovelemon, teen: IMG.lovelemon, adult: IMG.lovelemon, mythic: IMG.lovelemon },
+  '그린몬': { egg: IMG.greenmon,  baby: IMG.greenmon,  child: IMG.greenmon,  teen: IMG.greenmon,  adult: IMG.greenmon,  mythic: IMG.greenmon  },
+  '드래곤몬': { egg: IMG.dragonmon, baby: IMG.dragonmon, child: IMG.dragonmon, teen: IMG.dragonmon, adult: IMG.dragonmon, mythic: IMG.dragonmon },
+  '엔젤몬': { egg: IMG.angelmon, baby: IMG.angelmon, child: IMG.angelmon, teen: IMG.angelmon, adult: IMG.angelmon, mythic: IMG.angelmon },
+  '매직몬': { egg: IMG.magicmon,  baby: IMG.magicmon,  child: IMG.magicmon,  teen: IMG.magicmon,  adult: IMG.magicmon,  mythic: IMG.magicmon  },
+  '포레스몬': { egg: IMG.forestmon, baby: IMG.forestmon, child: IMG.forestmon, teen: IMG.forestmon, adult: IMG.forestmon, mythic: IMG.forestmon },
+  // Mythic 진화 4종
+  '인페르노몬': { egg: IMG.infernoMon, baby: IMG.infernoMon, child: IMG.infernoMon, teen: IMG.infernoMon, adult: IMG.infernoMon, mythic: IMG.infernoMon },
+  '오라클몬':   { egg: IMG.oracleMon,  baby: IMG.oracleMon,  child: IMG.oracleMon,  teen: IMG.oracleMon,  adult: IMG.oracleMon,  mythic: IMG.oracleMon  },
+  '세라피몬':  { egg: IMG.seraphiMon, baby: IMG.seraphiMon, child: IMG.seraphiMon, teen: IMG.seraphiMon, adult: IMG.seraphiMon, mythic: IMG.seraphiMon },
+  '가이아몬':   { egg: IMG.gaiaMon,    baby: IMG.gaiaMon,    child: IMG.gaiaMon,    teen: IMG.gaiaMon,    adult: IMG.gaiaMon,    mythic: IMG.gaiaMon    },
 };
 
 /** 캐릭터 이미지 URL 조회 함수 */
@@ -449,6 +458,18 @@ export function checkEvolution(pet: PetProfile): EvolutionResult | null {
 
   if (stage === 'teen' && level >= 30) {
     return { newSpecies: '레전드몬', newStage: 'adult', statBoosts: { power: 15, intelligence: 15, charm: 15, vitality: 15 } };
+  }
+
+  // 2차 진화: 레전드몬(adult) Lv.50 + 주력 성향 기반 → Mythic 4종
+  if (stage === 'adult' && level >= 50) {
+    const dominant = getDominantTrait(traits);
+    const mythicEvolutions: Record<string, EvolutionResult> = {
+      power:        { newSpecies: '인페르노몬', newStage: 'mythic', statBoosts: { power: 30, intelligence: 10, charm: 10, vitality: 10 } },
+      intelligence: { newSpecies: '오라클몬',   newStage: 'mythic', statBoosts: { power: 10, intelligence: 30, charm: 10, vitality: 10 } },
+      charm:        { newSpecies: '세라피몬',  newStage: 'mythic', statBoosts: { power: 10, intelligence: 10, charm: 30, vitality: 10 } },
+      vitality:     { newSpecies: '가이아몬',   newStage: 'mythic', statBoosts: { power: 10, intelligence: 10, charm: 10, vitality: 30 } },
+    };
+    return mythicEvolutions[dominant] || mythicEvolutions.charm;
   }
 
   return null;

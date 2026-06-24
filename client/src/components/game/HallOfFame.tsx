@@ -15,7 +15,10 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
   const [showConfirm, setShowConfirm] = useState(false);
 
   const pet = state.pet;
-  const legendImage = getCharacterImage('레전드몬', 'adult');
+  const isMythic = pet.stage === 'mythic';
+  const legendImage = isMythic
+    ? getCharacterImage(pet.species, 'mythic')
+    : getCharacterImage('레전드몬', 'adult');
 
   // 뉴게임+ 확인 다이얼로그
   if (showConfirm) {
@@ -82,13 +85,13 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
       </button>
 
       {/* 왕관 */}
-      <div className="text-5xl mb-2 animate-bounce">👑</div>
+      <div className="text-5xl mb-2 animate-bounce">{isMythic ? '✨' : '👑'}</div>
 
       {/* 타이틀 */}
       <h1 className="text-2xl font-black text-white mb-1" style={{ fontFamily: 'Nunito, sans-serif', textShadow: '0 0 20px oklch(0.85 0.15 60)' }}>
-        명예의 전당
+        {isMythic ? '전설의 전당' : '명예의 전당'}
       </h1>
-      <p className="text-sm text-white/70 mb-6">최종 진화 달성!</p>
+      <p className="text-sm text-white/70 mb-6">{isMythic ? '전설 진화 달성! 최고의 반려몬!' : '최종 진화 달성!'}</p>
 
       {/* 레전드몬 이미지 */}
       <div className="relative mb-4">
@@ -104,7 +107,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
       {/* 반려몬 정보 카드 */}
       <div className="bg-white/10 backdrop-blur-md rounded-3xl px-6 py-4 mx-6 w-full max-w-xs text-center mb-6 border border-white/20">
         <p className="text-white font-bold text-lg mb-1">{pet.name}</p>
-        <p className="text-white/70 text-sm">레전드몬 · Lv.{pet.level}</p>
+        <p className="text-white/70 text-sm">{pet.species} · Lv.{pet.level}</p>
         <div className="flex justify-center gap-6 mt-3">
           <div className="text-center">
             <p className="text-white/50 text-[10px]">친밀도</p>
@@ -112,7 +115,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">도감 수집</p>
-            <p className="text-white font-bold">{state.collection.length}/10</p>
+            <p className="text-white font-bold">{state.collection.length}/14</p>
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">보유 코인</p>

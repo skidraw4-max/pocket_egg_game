@@ -54,6 +54,7 @@ export default function PetProfile({ onClose }: PetProfileProps) {
     child: '어린이',
     teen: '청소년',
     adult: '성체',
+    mythic: '✨ 전설',
   };
 
   const birthDateStr = new Date(pet.birthDate).toLocaleDateString('ko-KR', {
@@ -206,7 +207,22 @@ export default function PetProfile({ onClose }: PetProfileProps) {
 }
 
 function getEvolutionHint(level: number, stage: string, traits?: { power: number; intelligence: number; charm: number; vitality: number }): string {
-  if (stage === 'adult') return '최종 진화를 달성했어요! 🎉';
+  if (stage === 'mythic') return '✨ 전설 진화 달성! 모든 반려몬 중 최강! 🌟';
+
+  if (stage === 'adult') {
+    if (!traits) return 'Lv.50에 전설 진화 가능! ✨';
+    const rem = Math.max(0, 50 - level);
+    const adultBase = rem > 0
+      ? `Lv.50에 전설 진화 가능 (${rem}레벨 남음)`
+      : '전설 진화 준비 완료! ✨';
+    const entries = Object.entries(traits) as [string, number][];
+    entries.sort((a, b) => b[1] - a[1]);
+    const topKey = entries[0][0];
+    const mythicName = topKey === 'power' ? '인페르노몬' : topKey === 'intelligence' ? '오라클몬' : topKey === 'charm' ? '세라피몬' : '가이아몬';
+    const mythicIcon = topKey === 'power' ? '🔥' : topKey === 'intelligence' ? '🔮' : topKey === 'charm' ? '✨' : '🌍';
+    return `${adultBase}
+현재 성향: ${mythicIcon} ${mythicName} 계열`;
+  }
 
   const remaining = stage === 'baby' ? Math.max(0, 5 - level)
     : stage === 'child' ? Math.max(0, 15 - level)
