@@ -15,7 +15,10 @@ import {
   INITIAL_GAME_STATE,
   loadGame,
   playWithPet,
+  purchaseItem,
+  PurchaseResult,
   saveGame,
+  ShopItemDef,
   sleepPet,
   touchPet,
 } from '@/lib/gameState';
@@ -30,6 +33,7 @@ interface GameContextType {
   clean: () => void;
   sleep: () => void;
   touch: () => void;
+  purchase: (item: ShopItemDef) => PurchaseResult;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -142,6 +146,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => touchPet(prev));
   }, [playSound]);
 
+  const purchase = useCallback((item: ShopItemDef): PurchaseResult => {
+    let result: PurchaseResult = { success: false, reason: 'insufficient_funds' };
+    setState(prev => {
+      result = purchaseItem(prev, item);
+      if (result.success) return result.newState;
+      return prev;
+    });
+    return result;
+  }, []);
+
   const confirmEvolution = useCallback(() => {
     if (!pendingEvolution) return;
     setState(prev => evolvePet(prev, pendingEvolution));
@@ -161,6 +175,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         clean,
         sleep,
         touch,
+        purchase,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

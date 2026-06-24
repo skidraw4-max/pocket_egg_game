@@ -465,6 +465,94 @@ function getDominantTrait(traits: GrowthTraits): string {
   return entries[0][0];
 }
 
+// ===== 상점 구매 =====
+
+export interface ShopItemDef {
+  id: string;
+  name: string;
+  type: 'food' | 'toy' | 'decor';
+  icon: string;
+  price: number;
+  currency: 'coins' | 'gems';
+  description: string;
+  /** 인벤토리에 추가할 아이템 정의 (food/toy) */
+  inventoryItem?: Omit<InventoryItem, 'quantity'>;
+}
+
+export type PurchaseResult =
+  | { success: true; newState: GameState }
+  | { success: false; reason: 'insufficient_funds' | 'already_owned' };
+
+export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResult {
+  // 재화 확인
+  const balance = item.currency === 'coins' ? state.coins : state.gems;
+  if (balance < item.price) {
+    return { success: false, reason: 'insufficient_funds' };
+  }
+
+  // 재화 차감
+  const newCoins = item.currency === 'coins' ? state.coins - item.price : state.coins;
+  const newGems  = item.currency === 'gems'  ? state.gems  - item.price : state.gems;
+
+  // 가구(decor) 처리: room.furniture 배열에 추가 (중복 허용 안 함)
+  if (item.type === 'decor') {
+    if (state.room.furniture.includes(item.id)) {
+      return { success: false, reason: 'already_owned' };
+    }
+    return {
+      success: true,
+      newState: {
+        ...state,
+        coins: newCoins,
+        gems: newGems,
+        room: {
+          ...state.room,
+          furniture: [...state.room.furniture, item.id],
+        },
+        lastSaveTime: Date.now(),
+      },
+    };
+  }
+
+  // 음식/장난감 처리: 인벤토리에 수량 추가
+  if (item.inventoryItem) {
+    const existingIdx = state.inventory.findIndex(i => i.id === item.id);
+    let newInventory: InventoryItem[];
+
+    if (existingIdx >= 0) {
+      // 이미 보유 중 → 수량 +1
+      newInventory = state.inventory.map((inv, idx) =>
+        idx === existingIdx ? { ...inv, quantity: inv.quantity + 1 } : inv
+      );
+    } else {
+      // 신규 아이템 → 인벤토리에 추가
+      newInventory = [...state.inventory, { ...item.inventoryItem, quantity: 1 }];
+    }
+
+    return {
+      success: true,
+      newState: {
+        ...state,
+        coins: newCoins,
+        gems: newGems,
+        inventory: newInventory,
+        lastSaveTime: Date.now(),
+      },
+    };
+  }
+
+  // inventoryItem 정의 없는 경우 재화만 차감
+  return {
+    success: true,
+    newState: {
+      ...state,
+      coins: newCoins,
+      gems: newGems,
+      lastSaveTime: Date.now(),
+    },
+  };
+}
+
 // ===== 저장/불러오기 =====
 
 const SAVE_KEY = 'pocket_egg_save';
