@@ -19,7 +19,7 @@ export default function QuestPanel({ onClose }: QuestPanelProps) {
   return (
     <div className="absolute inset-0 z-50 flex items-end" onClick={onClose}>
       <div
-        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl p-5 shadow-2xl animate-slide-up max-h-[80vh] flex flex-col"
+        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl p-5 shadow-2xl animate-slide-up max-h-[85vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -35,7 +35,7 @@ export default function QuestPanel({ onClose }: QuestPanelProps) {
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sub-brown"
+            className="w-11 h-11 rounded-full bg-muted flex items-center justify-center text-sub-brown"
           >
             ✕
           </button>

@@ -144,8 +144,12 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
     // 터치 효과음은 GameContext에서 이미 재생됨
   };
 
-  // 이미지 결정: 액션 > 수면 > 감정 > 기본 (종족별 진화 이미지 적용)
+  // 알 단계 여부
+  const isEgg = pet.stage === 'egg';
+
+  // 이미지 결정: 알 단계 > 액션 > 수면 > 감정 > 기본 (종족별 진화 이미지 적용)
   const petImage = (() => {
+    if (isEgg) return getCharacterImage(pet.species, 'egg');
     if (isSleeping) return ACTION_IMAGES.sleeping;
     if (gameCurrentAction !== 'idle') return ACTION_IMAGES[gameCurrentAction];
     // 감정이 idle이 아니면 감정 이미지 사용, idle이면 종족별 진화 이미지 사용
@@ -155,6 +159,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
   // 애니메이션 결정
   const petAnimation = (() => {
+    if (isEgg) return 'egg-wobble 2s ease-in-out infinite';
     if (isSleeping) return 'none';
     if (gameCurrentAction !== 'idle') return ACTION_ANIMATION[gameCurrentAction];
     return EMOTION_ANIMATION[emotion];
@@ -168,13 +173,15 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
       {/* 반려몬 이름 + 레벨 (클릭 시 프로필) */}
       <button
         onClick={onLongPress}
-        className="mb-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1 shadow-sm cushion-btn"
+        className="mb-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 shadow-sm cushion-btn flex items-center gap-1.5 min-h-[44px]"
+        title="프로필 보기"
       >
+        <span className="text-base">👤</span>
         <span className="text-sm font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
           {pet.name}
         </span>
-        <span className="text-xs text-sub-brown ml-2">Lv.{pet.level}</span>
-        <span className="text-xs text-sub-brown ml-1">♥ {Math.floor(pet.intimacy)}</span>
+        <span className="text-xs text-sub-brown">Lv.{pet.level}</span>
+        <span className="text-xs text-sub-brown">♥ {Math.floor(pet.intimacy)}</span>
       </button>
 
       {/* 감정 말풍선 */}
@@ -225,10 +232,28 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         )}
       </div>
 
-      {/* 종족 정보 */}
-      <div className="mt-1 text-xs text-sub-brown/70">
-        {pet.species} · {stageLabel(pet.stage)}
-      </div>
+      {/* 종족 정보 / 알 단계 부화 힌트 */}
+      {isEgg ? (
+        <div className="mt-2 flex flex-col items-center gap-1">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-2 shadow-sm text-center">
+            <p className="text-xs font-bold text-peach">🥚 신비로운 알</p>
+            <p className="text-[10px] text-sub-brown mt-0.5">먹이를 주고 돌봐주면 부화해요!</p>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white/70 rounded-full px-3 py-1">
+            <div className="w-20 h-1.5 bg-peach/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-peach to-lavender rounded-full transition-all"
+                style={{ width: `${Math.min(100, (pet.exp / pet.expToNext) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-sub-brown">{pet.exp}/{pet.expToNext}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-1 text-xs text-sub-brown/70">
+          {pet.species} · {stageLabel(pet.stage)}
+        </div>
+      )}
 
       {/* 액션 라벨 */}
       {gameCurrentAction !== 'idle' && (
@@ -240,6 +265,14 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
       )}
 
       <style>{`
+        @keyframes egg-wobble {
+          0%, 100% { transform: rotate(0deg) scale(1); }
+          15% { transform: rotate(-4deg) scale(1.02); }
+          30% { transform: rotate(4deg) scale(1.02); }
+          45% { transform: rotate(-2deg) scale(1.01); }
+          60% { transform: rotate(2deg) scale(1.01); }
+          75% { transform: rotate(0deg) scale(1); }
+        }
         @keyframes breathe {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-6px); }

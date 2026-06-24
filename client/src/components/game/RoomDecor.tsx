@@ -38,6 +38,38 @@ const DECOR_PLACEMENTS: Record<string, DecorPlacement> = {
     size: 'text-4xl',
     animation: 'twinkle',
   },
+  decor_sofa: {
+    icon: '🛋️',
+    name: '폠신한 소파',
+    left: '60%',
+    top: '55%',
+    size: 'text-5xl',
+    animation: 'none',
+  },
+  decor_bookshelf: {
+    icon: '📚',
+    name: '동화나라 체르장',
+    left: '5%',
+    top: '20%',
+    size: 'text-5xl',
+    animation: 'none',
+  },
+  decor_rainbow: {
+    icon: '🌈',
+    name: '무지개 창문',
+    left: '72%',
+    top: '28%',
+    size: 'text-4xl',
+    animation: 'float',
+  },
+  decor_cloud_bed: {
+    icon: '☁️',
+    name: '구름 침대',
+    left: '15%',
+    top: '60%',
+    size: 'text-5xl',
+    animation: 'float',
+  },
 };
 
 interface RoomDecorProps {

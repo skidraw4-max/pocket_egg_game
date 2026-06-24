@@ -18,8 +18,10 @@ import CollectionMenu from '@/components/game/CollectionMenu';
 import PetProfile from '@/components/game/PetProfile';
 import RoomDecor from '@/components/game/RoomDecor';
 import QuestPanel from '@/components/game/QuestPanel';
+import HallOfFame from '@/components/game/HallOfFame';
+import StatusAlert from '@/components/game/StatusAlert';
 
-export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest';
+export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall';
 
 export default function Home() {
   const { state, pendingEvolution, isSleeping } = useGame();
@@ -64,6 +66,7 @@ export default function Home() {
           gems={state.gems}
           onCollectionClick={() => setActiveMenu('collection')}
           onQuestClick={() => setActiveMenu('quest')}
+          onHallClick={state.pet.stage === 'adult' && state.pet.species === '레전드몬' ? () => setActiveMenu('hall') : undefined}
           unclaimedMissions={
             state.missions.missions.filter(m => m.completed && !m.claimed).length
           }
@@ -104,6 +107,12 @@ export default function Home() {
       {activeMenu === 'quest' && (
         <QuestPanel onClose={() => setActiveMenu('none')} />
       )}
+      {activeMenu === 'hall' && (
+        <HallOfFame onClose={() => setActiveMenu('none')} />
+      )}
+
+      {/* 상태 임계치 알림 */}
+      <StatusAlert />
 
       {/* 수면 오버레이 */}
       {isSleeping && <SleepOverlay />}

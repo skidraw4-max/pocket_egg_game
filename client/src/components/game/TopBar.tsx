@@ -10,10 +10,11 @@ interface TopBarProps {
   gems: number;
   onCollectionClick?: () => void;
   onQuestClick?: () => void;
+  onHallClick?: () => void;
   unclaimedMissions?: number;
 }
 
-export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, unclaimedMissions = 0 }: TopBarProps) {
+export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, onHallClick, unclaimedMissions = 0 }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   return (
@@ -31,7 +32,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, u
         {onCollectionClick && (
           <button
             onClick={onCollectionClick}
-            className="ml-2 bg-white/70 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm text-xs font-semibold text-sub-brown"
+            className="ml-2 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             📖 도감
           </button>
@@ -39,7 +40,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, u
         {onQuestClick && (
           <button
             onClick={onQuestClick}
-            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm text-xs font-semibold text-sub-brown"
+            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             📋 미션
             {unclaimedMissions > 0 && (
@@ -47,6 +48,14 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, u
                 {unclaimedMissions}
               </span>
             )}
+          </button>
+        )}
+        {onHallClick && (
+          <button
+            onClick={onHallClick}
+            className="ml-1 bg-gradient-to-r from-yellow-300/80 to-orange-300/80 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-warm-brown min-h-[44px] min-w-[44px] flex items-center justify-center animate-pulse"
+          >
+            🏆 전당
           </button>
         )}
       </div>

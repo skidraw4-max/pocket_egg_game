@@ -157,6 +157,42 @@ const SHOP_ITEMS: ShopItemDef[] = [
     currency: 'gems',
     description: '반짝이는 별 조명',
   },
+  {
+    id: 'decor_sofa',
+    name: '폠신한 소파',
+    type: 'decor',
+    icon: '🛋️',
+    price: 200,
+    currency: 'coins',
+    description: '폠신하게 쌓을 수 있는 소파',
+  },
+  {
+    id: 'decor_bookshelf',
+    name: '동화나라 체르장',
+    type: 'decor',
+    icon: '📚',
+    price: 180,
+    currency: 'coins',
+    description: '색깔마다 다른 동화책이 가득',
+  },
+  {
+    id: 'decor_rainbow',
+    name: '무지개 창문',
+    type: 'decor',
+    icon: '🌈',
+    price: 8,
+    currency: 'gems',
+    description: '항상 무지개가 맴치는 마법의 창문',
+  },
+  {
+    id: 'decor_cloud_bed',
+    name: '구름 침대',
+    type: 'decor',
+    icon: '☁️',
+    price: 10,
+    currency: 'gems',
+    description: '하늘에 떠 있는 듯 폠신한 침대',
+  },
 ];
 
 type ToastType = 'success' | 'error' | 'info';

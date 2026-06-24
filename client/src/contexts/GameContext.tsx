@@ -42,6 +42,7 @@ interface GameContextType {
   purchase: (item: ShopItemDef) => PurchaseResult;
   rename: (newName: string) => void;
   claimMission: (missionId: string) => void;
+  newGamePlus: () => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -183,6 +184,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // 뉴게임+: 코인/젬/도감은 유지, 반려몬·인벤토리·미션 초기화
+  const newGamePlus = useCallback(() => {
+    setState(prev => ({
+      ...INITIAL_GAME_STATE,
+      coins: prev.coins,
+      gems: prev.gems,
+      collection: prev.collection,
+      room: prev.room, // 가구도 유지
+    }));
+    setPendingEvolution(null);
+    setIsSleeping(false);
+  }, []);
+
   const confirmEvolution = useCallback(() => {
     if (!pendingEvolution) return;
     setState(prev => evolvePet(prev, pendingEvolution));
@@ -205,6 +219,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         purchase,
         rename,
         claimMission,
+        newGamePlus,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

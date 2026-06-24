@@ -384,6 +384,7 @@ export function touchPet(state: GameState): GameState {
 
 // 이미지 URL 상수 (CDN 경로)
 const IMG = {
+  egg:        'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/pdFNNVTkCmtraUYV.png',
   basicmon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/FEDWfUnGrASzcQTX.png',
   powermon:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/STjbGnGJYNoLIjDj.png',
   wizmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/WfadPKybAKTJlkVV.png',
@@ -398,7 +399,7 @@ const IMG = {
 
 /** 캐릭터 이미지 URL 매핑 (종족별 진화 단계) */
 export const CHARACTER_IMAGES: Record<string, Record<PetProfile['stage'], string>> = {
-  '기본몬': { egg: IMG.basicmon, baby: IMG.basicmon, child: IMG.basicmon, teen: IMG.basicmon, adult: IMG.basicmon },
+  '기본몬': { egg: IMG.egg, baby: IMG.basicmon, child: IMG.basicmon, teen: IMG.basicmon, adult: IMG.basicmon },
   '파워몬': { egg: IMG.powermon, baby: IMG.powermon, child: IMG.powermon, teen: IMG.powermon, adult: IMG.powermon },
   '위즈몬': { egg: IMG.wizmon,   baby: IMG.wizmon,   child: IMG.wizmon,   teen: IMG.wizmon,   adult: IMG.wizmon   },
   '레전드몬': { egg: IMG.legendmon, baby: IMG.legendmon, child: IMG.legendmon, teen: IMG.legendmon, adult: IMG.legendmon },
