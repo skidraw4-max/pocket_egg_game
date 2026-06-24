@@ -3,6 +3,7 @@
  * Cozy Nursery: 능력치, 성장 트레이트, 경험치 바
  */
 import { useGame } from '@/contexts/GameContext';
+import { getCharacterImage } from '@/lib/gameState';
 
 interface PetProfileProps {
   onClose: () => void;
@@ -21,6 +22,20 @@ export default function PetProfile({ onClose }: PetProfileProps) {
   ];
 
   const maxTrait = Math.max(pet.traits.power, pet.traits.intelligence, pet.traits.charm, pet.traits.vitality, 1);
+
+  const petImageUrl = getCharacterImage(pet.species, pet.stage);
+
+  const STAGE_LABEL: Record<string, string> = {
+    egg: '알',
+    baby: '아기',
+    child: '어린이',
+    teen: '청소년',
+    adult: '성체',
+  };
+
+  const birthDateStr = new Date(pet.birthDate).toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
@@ -41,14 +56,23 @@ export default function PetProfile({ onClose }: PetProfileProps) {
 
         {/* 반려몬 카드 */}
         <div className="bg-cream rounded-2xl p-4 mb-4 text-center">
-          <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-KfXhPsiuyY6WW7rKYGHEeV.webp"
-            alt={pet.name}
-            className="w-24 h-24 mx-auto object-contain mb-2"
-          />
+          <div className="relative inline-block mb-2">
+            <img
+              src={petImageUrl}
+              alt={pet.name}
+              className="w-28 h-28 mx-auto object-contain drop-shadow-md"
+            />
+            {/* 진화 단계 뱃지 */}
+            <span className="absolute bottom-0 right-0 text-[10px] font-bold bg-peach text-white px-2 py-0.5 rounded-full shadow">
+              {STAGE_LABEL[pet.stage] ?? pet.stage}
+            </span>
+          </div>
           <div className="text-xl font-bold text-warm-brown">{pet.name}</div>
           <div className="text-sm text-sub-brown">{pet.species} · Lv.{pet.level}</div>
-          <div className="text-xs text-sub-brown mt-1">친밀도 ♥ {Math.floor(pet.intimacy)}</div>
+          <div className="flex items-center justify-center gap-3 mt-1">
+            <span className="text-xs text-sub-brown">친밀도 ♥ {Math.floor(pet.intimacy)}</span>
+            <span className="text-[10px] text-sub-brown/70">탄생 {birthDateStr}</span>
+          </div>
         </div>
 
         {/* 경험치 바 */}

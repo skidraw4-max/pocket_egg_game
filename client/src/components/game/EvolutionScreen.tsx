@@ -1,13 +1,17 @@
 /**
  * EvolutionScreen - 진화 연출 화면
- * Cozy Nursery: 화려한 파티클, 축하 분위기
+ * Cozy Nursery: 화려한 파티클, 축하 분위
  */
 import { useGame } from '@/contexts/GameContext';
+import { getCharacterImage } from '@/lib/gameState';
 
 export default function EvolutionScreen() {
   const { pendingEvolution, confirmEvolution, state } = useGame();
 
   if (!pendingEvolution) return null;
+
+  // 진화 후 새 종족 이미지
+  const newPetImageUrl = getCharacterImage(pendingEvolution.newSpecies, pendingEvolution.newStage);
 
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -20,8 +24,8 @@ export default function EvolutionScreen() {
         {/* 반려몬 이미지 */}
         <div className="my-4 relative">
           <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-KfXhPsiuyY6WW7rKYGHEeV.webp"
-            alt="진화"
+            src={newPetImageUrl}
+            alt={pendingEvolution.newSpecies}
             className="w-32 h-32 mx-auto object-contain animate-bounce-gentle"
           />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
