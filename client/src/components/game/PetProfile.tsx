@@ -186,8 +186,8 @@ export default function PetProfile({ onClose }: PetProfileProps) {
 
         {/* 진화 힌트 */}
         <div className="bg-lavender-light rounded-2xl p-3 text-center">
-          <div className="text-xs text-sub-brown">
-            {getEvolutionHint(pet.level, pet.stage)}
+          <div className="text-xs text-sub-brown whitespace-pre-line">
+            {getEvolutionHint(pet.level, pet.stage, pet.traits)}
           </div>
         </div>
 
@@ -205,9 +205,43 @@ export default function PetProfile({ onClose }: PetProfileProps) {
   );
 }
 
-function getEvolutionHint(level: number, stage: string): string {
-  if (stage === 'baby') return `Lv.5에 진화할 수 있어요! (현재 Lv.${level})`;
-  if (stage === 'child') return `Lv.15에 다음 진화가 가능해요! (현재 Lv.${level})`;
-  if (stage === 'teen') return `Lv.30에 최종 진화를 할 수 있어요! (현재 Lv.${level})`;
-  return '최종 진화를 달성했어요! 🎉';
+function getEvolutionHint(level: number, stage: string, traits?: { power: number; intelligence: number; charm: number; vitality: number }): string {
+  if (stage === 'adult') return '최종 진화를 달성했어요! 🎉';
+
+  const remaining = stage === 'baby' ? Math.max(0, 5 - level)
+    : stage === 'child' ? Math.max(0, 15 - level)
+    : Math.max(0, 30 - level);
+
+  const nextLv = stage === 'baby' ? 5 : stage === 'child' ? 15 : 30;
+  const baseMsg = remaining > 0
+    ? `Lv.${nextLv}에 진화 가능 (${remaining}레벨 남음)`
+    : '진화 준비 완료! 레벨업 시 진화해요 ✨';
+
+  if (!traits) return baseMsg;
+
+  if (stage === 'baby') {
+    const hint = [
+      `💪 힘 → 파워몬`,
+      `🧠 지능 → 위즈몬`,
+      `💖 매력 → 러블리몬`,
+      `🌿 활력 → 그린몬`,
+    ];
+    const entries = Object.entries(traits) as [string, number][];
+    entries.sort((a, b) => b[1] - a[1]);
+    const topKey = entries[0][0];
+    const topName = topKey === 'power' ? '파워몬' : topKey === 'intelligence' ? '위즈몬' : topKey === 'charm' ? '러블리몬' : '그린몬';
+    const topIcon = topKey === 'power' ? '💪' : topKey === 'intelligence' ? '🧠' : topKey === 'charm' ? '💖' : '🌿';
+    return `${baseMsg}\n현재 성향: ${topIcon} ${topName} 계열`;
+  }
+
+  if (stage === 'child') {
+    const entries = Object.entries(traits) as [string, number][];
+    entries.sort((a, b) => b[1] - a[1]);
+    const topKey = entries[0][0];
+    const topName = topKey === 'power' ? '드래곤몬' : topKey === 'intelligence' ? '매직몬' : topKey === 'charm' ? '엔젤몬' : '포레스몬';
+    const topIcon = topKey === 'power' ? '🐉' : topKey === 'intelligence' ? '🔮' : topKey === 'charm' ? '👼' : '🌳';
+    return `${baseMsg}\n현재 성향: ${topIcon} ${topName} 계열`;
+  }
+
+  return `${baseMsg}\n👑 레전드몬으로 최종 진화!`;
 }

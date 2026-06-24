@@ -169,8 +169,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const claimMission = useCallback((missionId: string) => {
-    setState(prev => claimMissionReward(prev, missionId));
-  }, []);
+    setState(prev => checkProgression(claimMissionReward(prev, missionId)));
+  }, [checkProgression]);
 
   // 날짜가 바뀌면 미션 자동 리셋
   useEffect(() => {
