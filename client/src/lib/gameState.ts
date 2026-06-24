@@ -382,78 +382,32 @@ export function touchPet(state: GameState): GameState {
 
 // ===== 진화 로직 =====
 
+// 이미지 URL 상수 (CDN 경로)
+const IMG = {
+  basicmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/RBrtbsCkmilUWcQq.png',
+  powermon:     'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
+  wizmon:       'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
+  legendmon:    'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
+  lovelemon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/zzPifdWWMEajzDXR.png',
+  greenmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/usQQVZMdncKcOhXL.png',
+  dragonmon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/ifYxuvzHcVAhYLLe.png',
+  angelmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/KQIMCTGVeIYRgmsp.png',
+  magicmon:     'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fTgWcfvFGtHPQBxO.png',
+  forestmon:    'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/nRiEzIQtNZoFcSnc.png',
+} as const;
+
 /** 캐릭터 이미지 URL 매핑 (종족별 진화 단계) */
 export const CHARACTER_IMAGES: Record<string, Record<PetProfile['stage'], string>> = {
-  '기본몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-RWqGiSQbzfCq5GS93bZek3.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-RWqGiSQbzfCq5GS93bZek3.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-RWqGiSQbzfCq5GS93bZek3.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-RWqGiSQbzfCq5GS93bZek3.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-RWqGiSQbzfCq5GS93bZek3.webp',
-  },
-  '파워몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-  },
-  '위즈몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-  },
-  '레전드몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '러블리몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '그린몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '드래곤몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '매직몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '엔젤몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
-  '포레스몬': {
-    egg: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    baby: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    child: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage1-powermon-X9iXMX5w9Y4epKrsNjsGLt.webp',
-    teen: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage2-wizmon-Tn2xkGxWbzwe2Xg8DzREnK.webp',
-    adult: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-evolution-stage3-celestialmon-KPLkkcuCQEp4kXcMJ36uxt.webp',
-  },
+  '기본몬': { egg: IMG.basicmon, baby: IMG.basicmon, child: IMG.basicmon, teen: IMG.basicmon, adult: IMG.basicmon },
+  '파워몬': { egg: IMG.powermon, baby: IMG.powermon, child: IMG.powermon, teen: IMG.powermon, adult: IMG.powermon },
+  '위즈몬': { egg: IMG.wizmon,   baby: IMG.wizmon,   child: IMG.wizmon,   teen: IMG.wizmon,   adult: IMG.wizmon   },
+  '레전드몬': { egg: IMG.legendmon, baby: IMG.legendmon, child: IMG.legendmon, teen: IMG.legendmon, adult: IMG.legendmon },
+  '러블리몬': { egg: IMG.lovelemon, baby: IMG.lovelemon, child: IMG.lovelemon, teen: IMG.lovelemon, adult: IMG.lovelemon },
+  '그린몬': { egg: IMG.greenmon,  baby: IMG.greenmon,  child: IMG.greenmon,  teen: IMG.greenmon,  adult: IMG.greenmon  },
+  '드래곤몬': { egg: IMG.dragonmon, baby: IMG.dragonmon, child: IMG.dragonmon, teen: IMG.dragonmon, adult: IMG.dragonmon },
+  '엔젤몬': { egg: IMG.angelmon, baby: IMG.angelmon, child: IMG.angelmon, teen: IMG.angelmon, adult: IMG.angelmon },
+  '매직몬': { egg: IMG.magicmon,  baby: IMG.magicmon,  child: IMG.magicmon,  teen: IMG.magicmon,  adult: IMG.magicmon  },
+  '포레스몬': { egg: IMG.forestmon, baby: IMG.forestmon, child: IMG.forestmon, teen: IMG.forestmon, adult: IMG.forestmon },
 };
 
 /** 캐릭터 이미지 URL 조회 함수 */
