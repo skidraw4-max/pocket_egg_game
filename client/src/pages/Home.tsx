@@ -17,8 +17,9 @@ import TopBar from '@/components/game/TopBar';
 import CollectionMenu from '@/components/game/CollectionMenu';
 import PetProfile from '@/components/game/PetProfile';
 import RoomDecor from '@/components/game/RoomDecor';
+import QuestPanel from '@/components/game/QuestPanel';
 
-export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile';
+export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest';
 
 export default function Home() {
   const { state, pendingEvolution, isSleeping } = useGame();
@@ -62,6 +63,10 @@ export default function Home() {
           coins={state.coins}
           gems={state.gems}
           onCollectionClick={() => setActiveMenu('collection')}
+          onQuestClick={() => setActiveMenu('quest')}
+          unclaimedMissions={
+            state.missions.missions.filter(m => m.completed && !m.claimed).length
+          }
         />
 
         {/* 상태 게이지 */}
@@ -95,6 +100,9 @@ export default function Home() {
       )}
       {activeMenu === 'profile' && (
         <PetProfile onClose={() => setActiveMenu('none')} />
+      )}
+      {activeMenu === 'quest' && (
+        <QuestPanel onClose={() => setActiveMenu('none')} />
       )}
 
       {/* 수면 오버레이 */}

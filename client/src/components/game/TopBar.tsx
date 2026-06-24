@@ -9,9 +9,11 @@ interface TopBarProps {
   coins: number;
   gems: number;
   onCollectionClick?: () => void;
+  onQuestClick?: () => void;
+  unclaimedMissions?: number;
 }
 
-export default function TopBar({ coins, gems, onCollectionClick }: TopBarProps) {
+export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, unclaimedMissions = 0 }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   return (
@@ -32,6 +34,19 @@ export default function TopBar({ coins, gems, onCollectionClick }: TopBarProps) 
             className="ml-2 bg-white/70 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm text-xs font-semibold text-sub-brown"
           >
             📖 도감
+          </button>
+        )}
+        {onQuestClick && (
+          <button
+            onClick={onQuestClick}
+            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm text-xs font-semibold text-sub-brown"
+          >
+            📋 미션
+            {unclaimedMissions > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-peach text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {unclaimedMissions}
+              </span>
+            )}
           </button>
         )}
       </div>

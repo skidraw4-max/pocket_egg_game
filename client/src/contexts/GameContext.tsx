@@ -15,12 +15,17 @@ import {
   INITIAL_GAME_STATE,
   loadGame,
   playWithPet,
+  advanceMission,
+  claimMissionReward,
+  createDailyMissions,
+  needsMissionReset,
   purchaseItem,
   PurchaseResult,
   renamePet,
   saveGame,
   ShopItemDef,
   sleepPet,
+  todayStr,
   touchPet,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
@@ -36,6 +41,7 @@ interface GameContextType {
   touch: () => void;
   purchase: (item: ShopItemDef) => PurchaseResult;
   rename: (newName: string) => void;
+  claimMission: (missionId: string) => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -107,7 +113,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playSound('eating');
     setState(prev => {
       const next = feedPet(prev, itemId);
-      return checkProgression(next);
+      return advanceMission(checkProgression(next), 'feed');
     });
   }, [checkProgression, triggerAction, playSound]);
 
@@ -116,7 +122,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playSound('playing');
     setState(prev => {
       const next = playWithPet(prev, itemId);
-      return checkProgression(next);
+      return advanceMission(checkProgression(next), 'play');
     });
   }, [checkProgression, triggerAction, playSound]);
 
@@ -125,7 +131,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playSound('cleaning');
     setState(prev => {
       const next = cleanPet(prev);
-      return checkProgression(next);
+      return advanceMission(checkProgression(next), 'clean');
     });
   }, [checkProgression, triggerAction, playSound]);
 
@@ -135,7 +141,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playSound('sleeping');
     setState(prev => {
       const next = sleepPet(prev);
-      return checkProgression(next);
+      return advanceMission(checkProgression(next), 'sleep');
     });
     setTimeout(() => {
       setIsSleeping(false);
@@ -152,7 +158,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     let result: PurchaseResult = { success: false, reason: 'insufficient_funds' };
     setState(prev => {
       result = purchaseItem(prev, item);
-      if (result.success) return result.newState;
+      if (result.success) return advanceMission(result.newState, 'shop');
       return prev;
     });
     return result;
@@ -160,6 +166,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const rename = useCallback((newName: string) => {
     setState(prev => renamePet(prev, newName));
+  }, []);
+
+  const claimMission = useCallback((missionId: string) => {
+    setState(prev => claimMissionReward(prev, missionId));
+  }, []);
+
+  // 날짜가 바뀌면 미션 자동 리셋
+  useEffect(() => {
+    setState(prev => {
+      if (!needsMissionReset(prev)) return prev;
+      return {
+        ...prev,
+        missions: { missions: createDailyMissions(), lastResetDate: todayStr() },
+      };
+    });
   }, []);
 
   const confirmEvolution = useCallback(() => {
@@ -183,6 +204,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         touch,
         purchase,
         rename,
+        claimMission,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

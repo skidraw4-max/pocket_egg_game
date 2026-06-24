@@ -41,6 +41,7 @@ export interface GameState {
   collection: string[];
   lastSaveTime: number;
   totalPlayDays: number;
+  missions: MissionState;
 }
 
 export interface InventoryItem {
@@ -57,6 +58,28 @@ export interface InventoryItem {
 export interface RoomState {
   wallpaper: string;
   furniture: string[];
+}
+
+// ===== 미션 시스템 타입 =====
+
+export type MissionType = 'feed' | 'play' | 'clean' | 'sleep' | 'shop';
+
+export interface DailyMission {
+  id: string;
+  type: MissionType;
+  title: string;
+  description: string;
+  icon: string;
+  target: number;          // 목표 횟수
+  current: number;         // 현재 진행도
+  completed: boolean;      // 완료 여부
+  claimed: boolean;        // 보상 수령 여부
+  reward: { coins: number; exp: number };
+}
+
+export interface MissionState {
+  missions: DailyMission[];
+  lastResetDate: string;   // 'YYYY-MM-DD' 형식
 }
 
 // ===== 초기 상태 =====
@@ -78,6 +101,82 @@ export const INITIAL_PET_STATUS: PetStatus = {
   mood: 70,
   clean: 90,
   fatigue: 10,
+};
+
+/** 오늘 날짜를 'YYYY-MM-DD' 형식으로 반환 */
+export function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** 일일 미션 목록 생성 */
+export function createDailyMissions(): DailyMission[] {
+  return [
+    {
+      id: 'feed_3',
+      type: 'feed',
+      title: '밥 챙겨주기',
+      description: '반려몬에게 먹이를 3번 줘요',
+      icon: '🍖',
+      target: 3,
+      current: 0,
+      completed: false,
+      claimed: false,
+      reward: { coins: 30, exp: 15 },
+    },
+    {
+      id: 'play_2',
+      type: 'play',
+      title: '같이 놀아주기',
+      description: '장난감으로 2번 놀아줘요',
+      icon: '🎾',
+      target: 2,
+      current: 0,
+      completed: false,
+      claimed: false,
+      reward: { coins: 20, exp: 10 },
+    },
+    {
+      id: 'clean_1',
+      type: 'clean',
+      title: '깨끗이 씻겨주기',
+      description: '반려몬을 1번 청소해줘요',
+      icon: '🛁',
+      target: 1,
+      current: 0,
+      completed: false,
+      claimed: false,
+      reward: { coins: 15, exp: 8 },
+    },
+    {
+      id: 'sleep_1',
+      type: 'sleep',
+      title: '재워주기',
+      description: '반려몬을 1번 재워줘요',
+      icon: '💤',
+      target: 1,
+      current: 0,
+      completed: false,
+      claimed: false,
+      reward: { coins: 15, exp: 8 },
+    },
+    {
+      id: 'shop_1',
+      type: 'shop',
+      title: '상점 이용하기',
+      description: '상점에서 아이템을 1번 구매해요',
+      icon: '🛒',
+      target: 1,
+      current: 0,
+      completed: false,
+      claimed: false,
+      reward: { coins: 25, exp: 12 },
+    },
+  ];
+}
+
+export const INITIAL_MISSION_STATE: MissionState = {
+  missions: createDailyMissions(),
+  lastResetDate: todayStr(),
 };
 
 export const INITIAL_GAME_STATE: GameState = {
@@ -143,6 +242,7 @@ export const INITIAL_GAME_STATE: GameState = {
   collection: ['기본몬'],
   lastSaveTime: Date.now(),
   totalPlayDays: 1,
+  missions: INITIAL_MISSION_STATE,
 };
 
 // ===== 시간 경과 로직 =====
@@ -563,6 +663,62 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
       lastSaveTime: Date.now(),
     },
   };
+}
+
+// ===== 미션 시스템 =====
+
+/** 미션 진행도 업데이트 (feed/play/clean/sleep/shop) */
+export function advanceMission(state: GameState, type: MissionType): GameState {
+  // 날짜가 바뀌면 미션 리셋
+  const today = todayStr();
+  const missionsToUse =
+    state.missions.lastResetDate !== today
+      ? createDailyMissions()
+      : state.missions.missions;
+
+  const updatedMissions = missionsToUse.map(m => {
+    if (m.type !== type || m.completed) return m;
+    const newCurrent = m.current + 1;
+    const completed = newCurrent >= m.target;
+    return { ...m, current: newCurrent, completed };
+  });
+
+  return {
+    ...state,
+    missions: {
+      missions: updatedMissions,
+      lastResetDate: today,
+    },
+  };
+}
+
+/** 미션 보상 수령 */
+export function claimMissionReward(
+  state: GameState,
+  missionId: string
+): GameState {
+  const mission = state.missions.missions.find(m => m.id === missionId);
+  if (!mission || !mission.completed || mission.claimed) return state;
+
+  const updatedMissions = state.missions.missions.map(m =>
+    m.id === missionId ? { ...m, claimed: true } : m
+  );
+
+  return {
+    ...state,
+    coins: state.coins + mission.reward.coins,
+    pet: {
+      ...state.pet,
+      exp: state.pet.exp + mission.reward.exp,
+    },
+    missions: { ...state.missions, missions: updatedMissions },
+    lastSaveTime: Date.now(),
+  };
+}
+
+/** 미션 리셋 필요 여부 확인 */
+export function needsMissionReset(state: GameState): boolean {
+  return state.missions.lastResetDate !== todayStr();
 }
 
 // ===== 저장/불러오기 =====
