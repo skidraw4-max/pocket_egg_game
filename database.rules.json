@@ -1,0 +1,44 @@
+{
+  "rules": {
+    "players": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "ranking": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "visits": {
+      "$targetUid": {
+        "$visitorUid": {
+          ".read": "auth != null && (auth.uid === $targetUid || auth.uid === $visitorUid)",
+          ".write": "auth != null && auth.uid === $visitorUid"
+        }
+      }
+    },
+    "friends": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$friendUid": {
+          ".write": "auth != null && (auth.uid === $uid || auth.uid === $friendUid)"
+        }
+      }
+    },
+    "userIds": {
+      ".read": "auth != null",
+      "$gameId": {
+        ".write": "auth != null"
+      }
+    },
+    "nicknames": {
+      ".read": "auth != null",
+      "$nicknameKey": {
+        ".write": "auth != null"
+      }
+    }
+  }
+}
