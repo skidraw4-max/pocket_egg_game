@@ -890,6 +890,28 @@ export function loadGame(): GameState | null {
     }
     if (!data.claimedEvolutionRewards) data.claimedEvolutionRewards = [];
     if (!data.claimedCollectionRewards) data.claimedCollectionRewards = [];
+    // room 필드 마이그레이션 (구버전 저장 데이터 대응)
+    if (!data.room) {
+      data.room = { wallpaper: 'default', furniture: [] };
+    }
+    if (!data.room.furniture) {
+      data.room.furniture = [];
+    }
+    if (!Array.isArray(data.room.furniture)) {
+      data.room.furniture = [];
+    }
+    // friendCoins 필드 마이그레이션
+    if (typeof data.friendCoins !== 'number') {
+      data.friendCoins = 0;
+    }
+    // nickname 필드 마이그레이션
+    if (typeof data.nickname !== 'string') {
+      data.nickname = '';
+    }
+    // totalPlayDays 필드 마이그레이션
+    if (typeof data.totalPlayDays !== 'number') {
+      data.totalPlayDays = 0;
+    }
     return data;
   } catch {
     return null;
