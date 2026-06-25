@@ -36,6 +36,7 @@ import {
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
+import { registerNickname } from '@/lib/firebase';
 
 export type PetAction = 'idle' | 'eating' | 'playing' | 'cleaning' | 'sleeping';
 
@@ -48,7 +49,7 @@ interface GameContextType {
   touch: () => void;
   purchase: (item: ShopItemDef) => PurchaseResult;
   rename: (newName: string) => void;
-  setNickname: (nickname: string) => void;
+  setNickname: (nickname: string) => Promise<void>;
   claimMission: (missionId: string) => void;
   newGamePlus: () => void;
   pendingEvolution: EvolutionResult | null;
@@ -235,9 +236,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => renamePet(prev, newName));
   }, []);
 
-  const setNickname = useCallback((nickname: string) => {
-    setState(prev => setPlayerNickname(prev, nickname));
-  }, []);
+  const setNickname = useCallback(async (nickname: string) => {
+    const trimmed = nickname.trim();
+    if (!trimmed) return;
+
+    // Firebase 닉네임 인덱스 등록 (이전 닉네임 자동 해제)
+    if (uid) {
+      const prevNickname = state.nickname || undefined;
+      const ok = await registerNickname(trimmed, uid, prevNickname);
+      if (!ok) {
+        // 등록 실패 시 (race condition 등)에도 로컈에는 저장 (이미 UI에서 사전 차단)
+        console.warn('[Nickname] Firebase 등록 실패 — 로컈에만 저장');
+      }
+    }
+
+    setState(prev => setPlayerNickname(prev, trimmed));
+  }, [uid, state.nickname]);
 
   const claimMission = useCallback((missionId: string) => {
     setState(prev => checkProgression(claimMissionReward(prev, missionId)));

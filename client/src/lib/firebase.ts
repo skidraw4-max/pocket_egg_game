@@ -81,3 +81,75 @@ export async function lookupUidByGameId(gameId: string): Promise<string | null> 
   }
   return null;
 }
+
+/**
+ * 닉네임 정규화: 소문자 변환 + 공백 제거 (인덱스 키로 사용)
+ * 예: '알 마스터' → '알마스터', 'EggHunter' → 'egghunter'
+ */
+export function normalizeNickname(nickname: string): string {
+  return nickname.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+/**
+ * 닉네임 중복 여부 확인
+ * @returns true = 이미 사용 중, false = 사용 가능
+ */
+export async function isNicknameTaken(nickname: string, myUid: string): Promise<boolean> {
+  const key = normalizeNickname(nickname);
+  if (!key) return false;
+  try {
+    const snap = await get(ref(db, `nicknames/${key}`));
+    if (!snap.exists()) return false;
+    const ownerUid = snap.val() as string;
+    // 본인이 이미 사용 중인 닉네임이면 중복 아님
+    return ownerUid !== myUid;
+  } catch (e) {
+    console.warn('[Firebase] isNicknameTaken 실패:', e);
+    return false;
+  }
+}
+
+/**
+ * 닉네임 인덱스 등록 (트랜잭션으로 경쟁 조건 방지)
+ * @returns true = 등록 성공, false = 이미 다른 사용자가 사용 중
+ */
+export async function registerNickname(
+  nickname: string,
+  uid: string,
+  prevNickname?: string
+): Promise<boolean> {
+  const key = normalizeNickname(nickname);
+  if (!key) return false;
+
+  const nicknameRef = ref(db, `nicknames/${key}`);
+  let success = false;
+
+  await runTransaction(nicknameRef, (current) => {
+    // 비어있거나 본인이 이미 소유 중이면 등록
+    if (current === null || current === uid) {
+      success = true;
+      return uid;
+    }
+    // 다른 사람이 사용 중 → 트랜잭션 중단
+    return;
+  });
+
+  if (success && prevNickname) {
+    // 이전 닉네임 인덱스 해제
+    const prevKey = normalizeNickname(prevNickname);
+    if (prevKey && prevKey !== key) {
+      try {
+        const prevRef = ref(db, `nicknames/${prevKey}`);
+        const prevSnap = await get(prevRef);
+        // 본인 소유인 경우에만 삭제
+        if (prevSnap.exists() && prevSnap.val() === uid) {
+          await set(prevRef, null);
+        }
+      } catch (e) {
+        console.warn('[Firebase] 이전 닉네임 해제 실패:', e);
+      }
+    }
+  }
+
+  return success;
+}
