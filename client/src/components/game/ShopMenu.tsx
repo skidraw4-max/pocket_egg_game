@@ -10,9 +10,9 @@ interface ShopMenuProps {
   onClose: () => void;
 }
 
-type TabType = 'food' | 'toy' | 'decor';
+type TabType = 'food' | 'toy' | 'decor' | 'social';
 
-/** 상점 아이템 카탈로그 (inventoryItem 포함) */
+/** 일반 상점 아이템 카탈로그 */
 const SHOP_ITEMS: ShopItemDef[] = [
   {
     id: 'food_basic',
@@ -195,6 +195,64 @@ const SHOP_ITEMS: ShopItemDef[] = [
   },
 ];
 
+/** 소셜 전용 가구 카탈로그 (친구 코인으로만 구매 가능) */
+const SOCIAL_ITEMS: ShopItemDef[] = [
+  {
+    id: 'social_golden_stand',
+    name: '황금 알 받침대',
+    type: 'decor',
+    icon: '🏆',
+    price: 100,
+    currency: 'friendCoins',
+    description: '황금빛으로 빛나는 희귀 받침대',
+  },
+  {
+    id: 'social_photo_frame',
+    name: '친구 사진 액자',
+    type: 'decor',
+    icon: '🖼️',
+    price: 150,
+    currency: 'friendCoins',
+    description: '방문자 닉네임이 새겨지는 특별 액자',
+  },
+  {
+    id: 'social_rainbow_carpet',
+    name: '무지개 카펫',
+    type: 'decor',
+    icon: '🌈',
+    price: 200,
+    currency: 'friendCoins',
+    description: '발걸음마다 무지개가 피어나는 카펫',
+  },
+  {
+    id: 'social_star_mobile',
+    name: '별빛 모빌',
+    type: 'decor',
+    icon: '✨',
+    price: 250,
+    currency: 'friendCoins',
+    description: '천장에서 반짝이는 별빛 모빌',
+  },
+  {
+    id: 'social_crown_cushion',
+    name: '왕관 쿠션',
+    type: 'decor',
+    icon: '👑',
+    price: 300,
+    currency: 'friendCoins',
+    description: '반려몬 옆에 놓이는 희귀 왕관 쿠션',
+  },
+  {
+    id: 'social_trophy',
+    name: '소셜 트로피',
+    type: 'decor',
+    icon: '🥇',
+    price: 500,
+    currency: 'friendCoins',
+    description: '친구 10명 달성 기념 특별 트로피',
+  },
+];
+
 type ToastType = 'success' | 'error' | 'info';
 
 interface Toast {
@@ -203,11 +261,14 @@ interface Toast {
 }
 
 export default function ShopMenu({ onClose }: ShopMenuProps) {
-  const { state, purchase } = useGame();
+  const { state, purchase, friendCoins } = useGame();
   const [activeTab, setActiveTab] = useState<TabType>('food');
   const [toast, setToast] = useState<Toast | null>(null);
 
-  const filteredItems = SHOP_ITEMS.filter(item => item.type === activeTab);
+  const isSocialTab = activeTab === 'social';
+  const currentItems = isSocialTab
+    ? SOCIAL_ITEMS
+    : SHOP_ITEMS.filter(item => item.type === activeTab);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
@@ -219,7 +280,12 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
 
     if (!result.success) {
       if (result.reason === 'insufficient_funds') {
-        showToast('재화가 부족해요!', 'error');
+        showToast(
+          item.currency === 'friendCoins'
+            ? '친구 코인이 부족해요! 친구를 추가하거나 방문해 보세요.'
+            : '재화가 부족해요!',
+          'error'
+        );
       } else if (result.reason === 'already_owned') {
         showToast('이미 보유 중이에요!', 'info');
       }
@@ -233,16 +299,15 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     if (item.type === 'decor') {
       return state.room.furniture.includes(item.id);
     }
-    return false; // 음식/장난감은 중복 구매 허용
+    return false;
   };
 
   const canAfford = (item: ShopItemDef) => {
-    return item.currency === 'coins'
-      ? state.coins >= item.price
-      : state.gems >= item.price;
+    if (item.currency === 'coins') return state.coins >= item.price;
+    if (item.currency === 'gems') return state.gems >= item.price;
+    return (state.friendCoins ?? 0) >= item.price;
   };
 
-  // 인벤토리에서 현재 보유 수량 조회
   const getInventoryQty = (itemId: string) => {
     return state.inventory.find(i => i.id === itemId)?.quantity ?? 0;
   };
@@ -251,12 +316,19 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     { id: 'food', label: '먹이', icon: '🍖' },
     { id: 'toy', label: '장난감', icon: '🎾' },
     { id: 'decor', label: '가구', icon: '🏠' },
+    { id: 'social', label: '소셜', icon: '🤝' },
   ];
 
   const toastColors: Record<ToastType, string> = {
     success: 'bg-mint text-warm-brown',
     error: 'bg-[oklch(0.70_0.15_30)] text-white',
     info: 'bg-lavender text-warm-brown',
+  };
+
+  const getCurrencyIcon = (currency: ShopItemDef['currency']) => {
+    if (currency === 'coins') return '🪙';
+    if (currency === 'gems') return '💎';
+    return '🤝';
   };
 
   return (
@@ -270,9 +342,14 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
           <h2 className="text-lg font-bold text-warm-brown flex items-center gap-2">
             <span>🛒</span> 상점
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-warm-brown">🪙 {state.coins}</span>
             <span className="text-sm font-semibold text-warm-brown">💎 {state.gems}</span>
+            {activeTab === 'social' && (
+              <span className="text-sm font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                🤝 {(state.friendCoins ?? 0).toLocaleString()}
+              </span>
+            )}
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sub-brown"
@@ -290,7 +367,9 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 activeTab === tab.id
-                  ? 'bg-peach text-white'
+                  ? tab.id === 'social'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-peach text-white'
                   : 'bg-cream text-warm-brown'
               }`}
             >
@@ -300,9 +379,25 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
           ))}
         </div>
 
+        {/* 소셜 탭 안내 배너 */}
+        {isSocialTab && (
+          <div className="mb-3 bg-purple-50 border border-purple-100 rounded-2xl px-3 py-2.5 flex items-center gap-2">
+            <span className="text-lg">🤝</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-purple-600">친구 코인 전용 상점</p>
+              <p className="text-xs text-purple-400">
+                친구 추가·방문 보상으로 받은 친구 코인으로만 구매할 수 있는 특별 가구입니다.
+              </p>
+            </div>
+            <span className="text-sm font-bold text-purple-600 whitespace-nowrap">
+              🤝 {(state.friendCoins ?? 0).toLocaleString()}
+            </span>
+          </div>
+        )}
+
         {/* 상품 목록 */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 pb-2">
-          {filteredItems.map(item => {
+          {currentItems.map(item => {
             const owned = isOwned(item);
             const affordable = canAfford(item);
             const qty = item.type !== 'decor' ? getInventoryQty(item.id) : null;
@@ -318,11 +413,20 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
                   ${owned
                     ? 'bg-muted/50 border-border opacity-60 cursor-default'
                     : affordable
-                      ? 'bg-cream border-border cushion-btn active:scale-95'
+                      ? item.currency === 'friendCoins'
+                        ? 'bg-purple-50 border-purple-200 active:scale-95'
+                        : 'bg-cream border-border cushion-btn active:scale-95'
                       : 'bg-cream border-border cushion-btn active:scale-95 opacity-70'
                   }
                 `}
               >
+                {/* 소셜 전용 뱃지 */}
+                {item.currency === 'friendCoins' && !owned && (
+                  <span className="absolute top-2 left-2 text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    소셜
+                  </span>
+                )}
+
                 {/* 보유 중 뱃지 */}
                 {owned && (
                   <span className="absolute top-2 right-2 text-[10px] bg-mint text-warm-brown px-1.5 py-0.5 rounded-full font-bold">
@@ -345,8 +449,12 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
                 <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${
                   affordable ? 'bg-white/60' : 'bg-white/30'
                 }`}>
-                  <span className="text-xs">{item.currency === 'coins' ? '🪙' : '💎'}</span>
-                  <span className={`text-xs font-bold ${affordable ? 'text-peach' : 'text-sub-brown'}`}>
+                  <span className="text-xs">{getCurrencyIcon(item.currency)}</span>
+                  <span className={`text-xs font-bold ${
+                    affordable
+                      ? item.currency === 'friendCoins' ? 'text-purple-600' : 'text-peach'
+                      : 'text-sub-brown'
+                  }`}>
                     {item.price}
                   </span>
                   {!affordable && (

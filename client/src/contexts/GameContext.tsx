@@ -34,7 +34,7 @@ import {
   applyCollectionReward,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
-import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type FriendProfile } from '@/hooks/useFirebaseSync';
+import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
 
 export type PetAction = 'idle' | 'eating' | 'playing' | 'cleaning' | 'sleeping';
 
@@ -59,15 +59,18 @@ interface GameContextType {
   clearAttendanceResult: () => void;
   // Firebase 소셜
   uid: string | null;
+  gameId: string | null;
   syncing: boolean;
   lastSynced: Date | null;
   ranking: RankingEntry[];
   visitors: VisitorEntry[];
   friends: FriendEntry[];
+  recommended: RecommendEntry[];
+  friendCoins: number;
   visitFriend: (targetUid: string, myNickname: string) => Promise<{ success: boolean; message: string }>;
-  addFriend: (targetUid: string) => Promise<{ success: boolean; message: string; profile?: FriendProfile }>;
+  addFriendByGameId: (gameId: string) => Promise<{ success: boolean; message: string }>;
   removeFriend: (targetUid: string) => Promise<void>;
-  copyMyUid: () => Promise<boolean>;
+  copyMyGameId: () => Promise<boolean>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -91,7 +94,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const clearAttendanceResult = useCallback(() => setAttendanceResult(null), []);
 
   // Firebase 동기화 훅
-  const { uid, syncing, lastSynced, ranking, visitors, friends, visitFriend, addFriend, removeFriend, copyMyUid, loadFromCloud } =
+  const { uid, gameId, syncing, lastSynced, ranking, visitors, friends, recommended, friendCoins, visitFriend, addFriendByGameId, removeFriend, copyMyGameId, loadFromCloud } =
     useFirebaseSync(state);
 
   // 앱 시작 시 클라우드 데이터와 병합 (더 최근 데이터 우선)
@@ -298,15 +301,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       attendanceResult,
       clearAttendanceResult,
       uid,
+      gameId,
       syncing,
       lastSynced,
       ranking,
       visitors,
       friends,
+      recommended,
+      friendCoins,
       visitFriend,
-      addFriend,
+      addFriendByGameId,
       removeFriend,
-      copyMyUid,
+      copyMyGameId,
     }}
     >
       {children}

@@ -53,6 +53,7 @@ export interface GameState {
   attendance: AttendanceState;
   claimedEvolutionRewards: string[];  // 보상 수령한 진화 종족 목록
   claimedCollectionRewards: string[]; // 보상 수령한 도감 종족 목록
+  friendCoins: number;                // 친구 전용 코인 (소셜 가구 구매용)
 }
 
 export interface InventoryItem {
@@ -263,6 +264,7 @@ export const INITIAL_GAME_STATE: GameState = {
   },
   claimedEvolutionRewards: [],
   claimedCollectionRewards: [],
+  friendCoins: 0,
 };
 
 // ===== 시간 경과 로직 =====
@@ -586,7 +588,7 @@ export interface ShopItemDef {
   type: 'food' | 'toy' | 'decor';
   icon: string;
   price: number;
-  currency: 'coins' | 'gems';
+  currency: 'coins' | 'gems' | 'friendCoins';
   description: string;
   /** 인벤토리에 추가할 아이템 정의 (food/toy) */
   inventoryItem?: Omit<InventoryItem, 'quantity'>;
@@ -598,14 +600,18 @@ export type PurchaseResult =
 
 export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResult {
   // 재화 확인
-  const balance = item.currency === 'coins' ? state.coins : state.gems;
+  const balance =
+    item.currency === 'coins' ? state.coins
+    : item.currency === 'gems' ? state.gems
+    : (state.friendCoins ?? 0);
   if (balance < item.price) {
     return { success: false, reason: 'insufficient_funds' };
   }
 
   // 재화 차감
-  const newCoins = item.currency === 'coins' ? state.coins - item.price : state.coins;
-  const newGems  = item.currency === 'gems'  ? state.gems  - item.price : state.gems;
+  const newCoins       = item.currency === 'coins'       ? state.coins - item.price : state.coins;
+  const newGems        = item.currency === 'gems'        ? state.gems  - item.price : state.gems;
+  const newFriendCoins = item.currency === 'friendCoins' ? (state.friendCoins ?? 0) - item.price : (state.friendCoins ?? 0);
 
   // 가구(decor) 처리: room.furniture 배열에 추가 (중복 허용 안 함)
   if (item.type === 'decor') {
@@ -618,6 +624,7 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
         ...state,
         coins: newCoins,
         gems: newGems,
+        friendCoins: newFriendCoins,
         room: {
           ...state.room,
           furniture: [...state.room.furniture, item.id],
@@ -648,6 +655,7 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
         ...state,
         coins: newCoins,
         gems: newGems,
+        friendCoins: newFriendCoins,
         inventory: newInventory,
         lastSaveTime: Date.now(),
       },
@@ -661,6 +669,7 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
       ...state,
       coins: newCoins,
       gems: newGems,
+      friendCoins: newFriendCoins,
       lastSaveTime: Date.now(),
     },
   };
