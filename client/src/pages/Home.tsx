@@ -73,7 +73,7 @@ export default function Home() {
       <div className="absolute inset-0 bg-[oklch(0.98_0.015_80)]/20" />
 
       {/* 가구 렌더링 레이어 */}
-      <RoomDecor furniture={state.room.furniture} />
+      <RoomDecor furniture={state.room?.furniture ?? []} />
 
       {/* 콘텐츠 레이어 */}
       <div className="relative z-10 flex flex-col h-full">
@@ -89,7 +89,7 @@ export default function Home() {
           nickname={state.nickname}
           syncing={syncing}
           unclaimedMissions={
-            state.missions.missions.filter(m => m.completed && !m.claimed).length
+            (state.missions?.missions ?? []).filter(m => m.completed && !m.claimed).length
           }
         />
 

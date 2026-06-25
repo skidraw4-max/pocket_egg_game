@@ -297,7 +297,7 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
 
   const isOwned = (item: ShopItemDef) => {
     if (item.type === 'decor') {
-      return state.room.furniture.includes(item.id);
+      return (state.room?.furniture ?? []).includes(item.id);
     }
     return false;
   };

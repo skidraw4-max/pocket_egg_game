@@ -115,7 +115,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">도감 수집</p>
-            <p className="text-white font-bold">{state.collection.length}/14</p>
+            <p className="text-white font-bold">{(state.collection ?? []).length}/14</p>
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">보유 코인</p>

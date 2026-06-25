@@ -70,7 +70,12 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
   };
 
-  const friendUids = new Set(friends.map((f) => f.uid));
+  // 배열 방어 처리 (Firebase 연결 전 undefined 대응)
+  const safeFriends = Array.isArray(friends) ? friends : [];
+  const safeRanking = Array.isArray(ranking) ? ranking : [];
+  const safeVisitors = Array.isArray(visitors) ? visitors : [];
+  const safeRecommended = Array.isArray(recommended) ? recommended : [];
+  const friendUids = new Set(safeFriends.map((f) => f.uid));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -148,10 +153,10 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
               </div>
 
               {/* 추천 친구 목록 */}
-              {recommended.length > 0 && (
+              {safeRecommended.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-500">💡 추천 친구</p>
-                  {recommended.map((r) => (
+                  {safeRecommended.map((r) => (
                     <div key={r.uid} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
                       <span className="text-xl">{STAGE_EMOJI[r.stage] ?? '🥚'}</span>
                       <div className="flex-1 min-w-0">
@@ -173,16 +178,16 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
               {/* 내 친구 목록 */}
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500">
-                  친구 목록 {friends.length > 0 ? `(${friends.length}명)` : ''}
+                  친구 목록 {safeFriends.length > 0 ? `(${safeFriends.length}명)` : ''}
                 </p>
-                {friends.length === 0 ? (
+                {safeFriends.length === 0 ? (
                   <p className="text-center text-gray-400 py-6 text-sm">
                     아직 친구가 없습니다.<br />
                     위에서 친구 ID를 입력하거나<br />
                     추천 친구를 추가해 보세요!
                   </p>
                 ) : (
-                  friends.map((f) => (
+                  safeFriends.map((f) => (
                     <div key={f.uid} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                       <span className="text-xl">{STAGE_EMOJI[f.stage] ?? '🥚'}</span>
                       <div className="flex-1 min-w-0">
@@ -233,13 +238,13 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
           {/* ── 랭킹 탭 ── */}
           {tab === 'ranking' && (
             <div className="space-y-2">
-              {ranking.length === 0 ? (
+              {safeRanking.length === 0 ? (
                 <p className="text-center text-gray-400 py-8 text-sm">
                   아직 랭킹 데이터가 없습니다.<br />
                   게임을 플레이하면 자동으로 등록됩니다!
                 </p>
               ) : (
-                ranking.map((entry, i) => (
+                safeRanking.map((entry, i) => (
                   <div
                     key={entry.uid}
                     className={`flex items-center gap-3 p-3 rounded-2xl ${
@@ -271,13 +276,13 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
           {/* ── 방문자 탭 ── */}
           {tab === 'visitors' && (
             <div className="space-y-2">
-              {visitors.length === 0 ? (
+              {safeVisitors.length === 0 ? (
                 <p className="text-center text-gray-400 py-8 text-sm">
                   아직 방문자가 없습니다.<br />
                   친구에게 내 ID를 공유해 보세요!
                 </p>
               ) : (
-                visitors.map((v) => (
+                safeVisitors.map((v) => (
                   <div key={v.uid + v.visitedAt} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                     <span className="text-2xl">👤</span>
                     <div className="flex-1 min-w-0">

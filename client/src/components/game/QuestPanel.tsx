@@ -11,7 +11,8 @@ interface QuestPanelProps {
 
 export default function QuestPanel({ onClose }: QuestPanelProps) {
   const { state, claimMission } = useGame();
-  const { missions } = state.missions;
+  // missions 배열 방어 처리 (구버전 저장 데이터 대응)
+  const missions = Array.isArray(state.missions?.missions) ? state.missions.missions : [];
 
   const completedCount = missions.filter(m => m.completed).length;
   const allClaimed = missions.every(m => m.claimed);

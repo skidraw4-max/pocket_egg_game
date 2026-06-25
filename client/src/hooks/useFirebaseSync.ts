@@ -83,7 +83,22 @@ export function useFirebaseSync(state: GameState | null) {
     if (!uid) return null;
     try {
       const snap = await get(ref(db, `players/${uid}/gameState`));
-      if (snap.exists()) return snap.val() as GameState;
+      if (snap.exists()) {
+        const data = snap.val() as GameState;
+        // 클라우드 데이터 정규화 (구버전 데이터 대응)
+        if (!data.room) data.room = { wallpaper: 'default', furniture: [] };
+        if (!data.room.furniture || !Array.isArray(data.room.furniture)) data.room.furniture = [];
+        if (typeof data.friendCoins !== 'number') data.friendCoins = 0;
+        if (typeof data.nickname !== 'string') data.nickname = '';
+        if (typeof data.totalPlayDays !== 'number') data.totalPlayDays = 0;
+        if (!data.attendance) data.attendance = { lastLoginDate: '', streak: 0, totalDays: 0, weeklyMissionsClaimed: false, lastWeekStr: '' };
+        if (!data.claimedEvolutionRewards) data.claimedEvolutionRewards = [];
+        if (!data.claimedCollectionRewards) data.claimedCollectionRewards = [];
+        if (!data.missions) data.missions = { missions: [], lastResetDate: '' };
+        if (!Array.isArray(data.inventory)) data.inventory = [];
+        if (!Array.isArray(data.collection)) data.collection = [];
+        return data;
+      }
     } catch (e) {
       console.warn('[Firebase] loadFromCloud 실패:', e);
     }
@@ -102,7 +117,7 @@ export function useFirebaseSync(state: GameState | null) {
           const nickname = (gameState.nickname && gameState.nickname.trim())
             ? gameState.nickname.trim()
             : (gameState.pet?.name ?? '알 주인');
-          const level = gameState.level ?? 1;
+          const level = gameState.pet?.level ?? 1;
           const stage = gameState.pet?.stage ?? 'egg';
           const coins = gameState.coins ?? 0;
 
@@ -241,7 +256,7 @@ export function useFirebaseSync(state: GameState | null) {
       const myNickname = (state?.nickname && state.nickname.trim())
         ? state.nickname.trim()
         : (state?.pet?.name ?? '알 주인');
-      const myLevel = state?.level ?? 1;
+      const myLevel = state?.pet?.level ?? 1;
       const myStage = state?.pet?.stage ?? 'egg';
       const now = Date.now();
 
@@ -284,7 +299,8 @@ export function useFirebaseSync(state: GameState | null) {
     const count = snap.exists() ? Object.keys(snap.val()).length : 0;
     const bonusRef = ref(db, `players/${targetUid}/friendCountBonus`);
     const bonusSnap = await get(bonusRef);
-    const claimed = bonusSnap.exists() ? (bonusSnap.val() as number[]) : [];
+    const rawClaimed = bonusSnap.exists() ? bonusSnap.val() : [];
+    const claimed: number[] = Array.isArray(rawClaimed) ? rawClaimed : Object.values(rawClaimed ?? {});
 
     if (count >= 3 && !claimed.includes(3)) {
       await addFriendCoins(targetUid, 100);

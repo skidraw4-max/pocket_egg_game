@@ -280,7 +280,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       coins: prev.coins,
       gems: prev.gems,
       collection: prev.collection,
-      room: prev.room, // 가구도 유지
+      room: prev.room ?? { wallpaper: 'default', furniture: [] }, // 가구도 유지
+      friendCoins: prev.friendCoins ?? 0,  // 친구 코인 유지
+      nickname: prev.nickname ?? '',        // 닉네임 유지
+      attendance: prev.attendance ?? INITIAL_GAME_STATE.attendance, // 출석 유지
     }));
     setPendingEvolution(null);
     setIsSleeping(false);

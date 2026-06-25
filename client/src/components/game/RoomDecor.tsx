@@ -77,7 +77,8 @@ interface RoomDecorProps {
 }
 
 export default function RoomDecor({ furniture }: RoomDecorProps) {
-  if (furniture.length === 0) return null;
+  // furniture가 undefined/null인 경우 방어 처리 (구버전 저장 데이터 대응)
+  if (!furniture || !Array.isArray(furniture) || furniture.length === 0) return null;
 
   return (
     <>
