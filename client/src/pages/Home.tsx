@@ -21,6 +21,8 @@ import QuestPanel from '@/components/game/QuestPanel';
 import HallOfFame from '@/components/game/HallOfFame';
 import StatusAlert from '@/components/game/StatusAlert';
 import DailyBonus from '@/components/game/DailyBonus';
+import PWAPrompt from '@/components/game/PWAPrompt';
+import { usePushNotification } from '@/hooks/usePushNotification';
 
 export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall';
 
@@ -28,6 +30,18 @@ export default function Home() {
   const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult } = useGame();
   const { playBGM } = useSound();
   const [activeMenu, setActiveMenu] = useState<ActiveMenu>('none');
+  const { checkAndNotify, scheduleBackgroundCheck } = usePushNotification();
+
+  // 반려몬 상태 변경 시 알림 체크
+  useEffect(() => {
+    checkAndNotify(state);
+  }, [state.status.hunger, state.status.fatigue, state.status.clean, checkAndNotify]);
+
+  // 백그라운드 복귀 시 알림 체크 등록
+  useEffect(() => {
+    const cleanup = scheduleBackgroundCheck(() => state);
+    return cleanup;
+  }, [scheduleBackgroundCheck, state]);
 
   // 컴포넌트 마운트 시 BGM 시작
   useEffect(() => {
@@ -125,6 +139,9 @@ export default function Home() {
       {attendanceResult?.isNewDay && (
         <DailyBonus result={attendanceResult} onClose={clearAttendanceResult} />
       )}
+
+      {/* PWA 설치 프롬프트 및 알림 권한 요청 */}
+      <PWAPrompt />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+import { VitePWA } from "vite-plugin-pwa";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -203,7 +204,131 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
+const plugins = [
+  react(),
+  tailwindcss(),
+  jsxLocPlugin(),
+  vitePluginManusRuntime(),
+  vitePluginManusDebugCollector(),
+  vitePluginStorageProxy(),
+  VitePWA({
+    registerType: 'autoUpdate',
+    includeAssets: ['icon-512.png', 'icon-192.png', 'apple-touch-icon.png', 'favicon-32.png', 'sounds/**/*'],
+    manifest: {
+      name: '포켓 에그: 나만의 반려몬',
+      short_name: '포켓 에그',
+      description: '알에서 시작해 반려몬을 키우고 진화시키는 모바일 육성 게임',
+      theme_color: '#FFF8F0',
+      background_color: '#FFF8F0',
+      display: 'standalone',
+      orientation: 'portrait',
+      scope: '/',
+      start_url: '/',
+      lang: 'ko',
+      categories: ['games', 'entertainment'],
+      icons: [
+        {
+          src: '/icon-192.png',
+          sizes: '192x192',
+          type: 'image/png',
+          purpose: 'any maskable',
+        },
+        {
+          src: '/icon-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'any maskable',
+        },
+      ],
+      screenshots: [
+        {
+          src: '/icon-512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          form_factor: 'narrow',
+          label: '포켓 에그 게임 화면',
+        },
+      ],
+    },
+    workbox: {
+      // 2MB 초과 파일(BGM 등)도 precache 허용 (6MB까지)
+      maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      // 캐시 전략: CacheFirst for assets, NetworkFirst for API
+      runtimeCaching: [
+        {
+          urlPattern: /\.(?:png|jpg|jpeg|webp|svg|gif|ico)$/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'pocket-egg-images',
+            expiration: {
+              maxEntries: 100,
+              maxAgeSeconds: 60 * 60 * 24 * 30, // 30일
+            },
+          },
+        },
+        {
+          urlPattern: /\.(?:mp3|wav|ogg)$/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'pocket-egg-sounds',
+            expiration: {
+              maxEntries: 30,
+              maxAgeSeconds: 60 * 60 * 24 * 30,
+            },
+          },
+        },
+        {
+          urlPattern: /\.(?:woff2?|ttf|eot)$/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'pocket-egg-fonts',
+            expiration: {
+              maxEntries: 10,
+              maxAgeSeconds: 60 * 60 * 24 * 365, // 1년
+            },
+          },
+        },
+        {
+          urlPattern: /^https:\/\/d2xsxph8kpxj0f\.cloudfront\.net\/.*/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'pocket-egg-cdn',
+            expiration: {
+              maxEntries: 50,
+              maxAgeSeconds: 60 * 60 * 24 * 7, // 7일
+            },
+          },
+        },
+        {
+          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+          handler: 'StaleWhileRevalidate',
+          options: {
+            cacheName: 'google-fonts-stylesheets',
+          },
+        },
+        {
+          urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'google-fonts-webfonts',
+            expiration: {
+              maxEntries: 10,
+              maxAgeSeconds: 60 * 60 * 24 * 365,
+            },
+          },
+        },
+      ],
+      // 앱 셸 중 오프라인 폴백 페이지
+      navigateFallback: '/index.html',
+      navigateFallbackDenylist: [/^\/api\//],
+      // 빌드 시 사전 캐시될 파일 패턴
+      globPatterns: ['**/*.{js,css,html,ico,png,jpg,webp,svg,woff2,wav,mp3}'],
+    },
+    devOptions: {
+      enabled: false, // 개발 중에는 SW 비활성화 (HMR 충돌 방지)
+    },
+  }),
+];
 
 export default defineConfig({
   plugins,
