@@ -21,9 +21,13 @@ export interface AdResult {
   reason?: 'not_available' | 'user_closed' | 'error' | 'not_loaded';
 }
 
-/** AdMob 광고 단위 ID */
+/** AdMob 광고 단위 ID
+ *  - 환경변수(VITE_ADMOB_REWARDED_AD_UNIT_ID)가 설정되어 있으면 해당 값 사용
+ *  - 미설정 시 직접 입력한 ID 사용
+ */
 const REWARDED_AD_UNIT_ID: string =
-  import.meta.env.VITE_ADMOB_REWARDED_AD_UNIT_ID ?? '';
+  (import.meta.env.VITE_ADMOB_REWARDED_AD_UNIT_ID as string) ||
+  'ca-app-pub-2237287742271246/3695963735';
 
 /** 광고 SDK 로드 여부 */
 let adSdkLoaded = false;
