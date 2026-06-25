@@ -22,12 +22,13 @@ import HallOfFame from '@/components/game/HallOfFame';
 import StatusAlert from '@/components/game/StatusAlert';
 import DailyBonus from '@/components/game/DailyBonus';
 import PWAPrompt from '@/components/game/PWAPrompt';
+import SocialMenu from '@/components/game/SocialMenu';
 import { usePushNotification } from '@/hooks/usePushNotification';
 
-export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall';
+export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall' | 'social';
 
 export default function Home() {
-  const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult } = useGame();
+  const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult, syncing } = useGame();
   const { playBGM } = useSound();
   const [activeMenu, setActiveMenu] = useState<ActiveMenu>('none');
   const { checkAndNotify, scheduleBackgroundCheck } = usePushNotification();
@@ -82,6 +83,8 @@ export default function Home() {
           onCollectionClick={() => setActiveMenu('collection')}
           onQuestClick={() => setActiveMenu('quest')}
           onHallClick={(state.pet.stage === 'adult' && state.pet.species === '레전드몬') || state.pet.stage === 'mythic' ? () => setActiveMenu('hall') : undefined}
+          onSocialClick={() => setActiveMenu('social')}
+          syncing={syncing}
           unclaimedMissions={
             state.missions.missions.filter(m => m.completed && !m.claimed).length
           }
@@ -124,6 +127,9 @@ export default function Home() {
       )}
       {activeMenu === 'hall' && (
         <HallOfFame onClose={() => setActiveMenu('none')} />
+      )}
+      {activeMenu === 'social' && (
+        <SocialMenu onClose={() => setActiveMenu('none')} />
       )}
 
       {/* 상태 임계치 알림 */}
