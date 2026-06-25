@@ -383,8 +383,9 @@ function stageLabel(stage: PetProfile['stage']): string {
     child: '어린이',
     teen: '청소년',
     adult: '성체',
+    mythic: '✨ 전설',
   };
-  return labels[stage];
+  return labels[stage] ?? stage;
 }
 
 function actionLabel(action: PetAction): string {

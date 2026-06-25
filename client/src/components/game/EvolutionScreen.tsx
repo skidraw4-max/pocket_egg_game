@@ -18,7 +18,11 @@ export default function EvolutionScreen() {
       <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-6 mx-4 shadow-2xl animate-pop-in text-center max-w-sm w-full">
         {/* 타이틀 */}
         <div className="text-2xl font-bold text-peach mb-2" style={{ fontFamily: 'Nunito, sans-serif' }}>
-          ✨ 진화 완료! ✨
+          {pendingEvolution.newStage === 'baby' && pendingEvolution.newSpecies === '기본몬'
+            ? '🐣 부화 성공! 🐣'
+            : pendingEvolution.newStage === 'mythic'
+            ? '✨ 전설 진화! ✨'
+            : '✨ 진화 완료! ✨'}
         </div>
 
         {/* 반려몬 이미지 */}
@@ -38,7 +42,9 @@ export default function EvolutionScreen() {
           {pendingEvolution.newSpecies}
         </div>
         <div className="text-sm text-sub-brown mb-4">
-          {state.pet.name}이(가) 새로운 모습으로 진화했어요!
+          {pendingEvolution.newStage === 'baby' && pendingEvolution.newSpecies === '기본몬'
+            ? `🥚 알에서 ${state.pet.name}이(가) 태어났어요!`
+            : `${state.pet.name}이(가) 새로운 모습으로 진화했어요!`}
         </div>
 
         {/* 능력치 변화 */}

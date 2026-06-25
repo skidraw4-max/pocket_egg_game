@@ -86,7 +86,7 @@ export interface MissionState {
 
 export const INITIAL_PET_PROFILE: PetProfile = {
   name: '포코',
-  stage: 'baby',
+  stage: 'egg',
   species: '기본몬',
   level: 1,
   exp: 0,
@@ -434,6 +434,11 @@ export interface EvolutionResult {
 export function checkEvolution(pet: PetProfile): EvolutionResult | null {
   const { level, stage, traits } = pet;
 
+  // 알 부화: Lv.3이상이면 baby로 부화
+  if (stage === 'egg' && level >= 3) {
+    return { newSpecies: '기본몬', newStage: 'baby', statBoosts: {} };
+  }
+
   if (stage === 'baby' && level >= 5) {
     const dominant = getDominantTrait(traits);
     const evolutions: Record<string, EvolutionResult> = {
@@ -710,7 +715,19 @@ export function loadGame(): GameState | null {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as GameState;
+    const data = JSON.parse(raw) as GameState;
+    // 구버전 저장 데이터 마이그레이션
+    if (!data.missions) {
+      data.missions = INITIAL_MISSION_STATE;
+    }
+    if (!data.pet.stage) {
+      data.pet.stage = 'baby';
+    }
+    // egg 단계가 없던 구버전 호환성
+    if (!['egg', 'baby', 'child', 'teen', 'adult', 'mythic'].includes(data.pet.stage)) {
+      data.pet.stage = 'baby';
+    }
+    return data;
   } catch {
     return null;
   }
