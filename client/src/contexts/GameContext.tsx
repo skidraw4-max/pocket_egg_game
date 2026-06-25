@@ -17,6 +17,7 @@ import {
   playWithPet,
   advanceMission,
   claimMissionReward,
+  claimMissionAdReward,
   createDailyMissions,
   needsMissionReset,
   purchaseItem,
@@ -51,6 +52,7 @@ interface GameContextType {
   rename: (newName: string) => void;
   setNickname: (nickname: string) => Promise<void>;
   claimMission: (missionId: string) => void;
+  claimMissionAd: (missionId: string) => void;
   newGamePlus: () => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
@@ -264,6 +266,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => checkProgression(claimMissionReward(prev, missionId)));
   }, [checkProgression]);
 
+  const claimMissionAd = useCallback((missionId: string) => {
+    setState(prev => claimMissionAdReward(prev, missionId));
+  }, []);
+
   // 날짜가 바뀌면 미션 자동 리셋 + 출석 보상 처리
   useEffect(() => {
     setState(prev => {
@@ -328,8 +334,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         purchase,
         rename,
         setNickname,
-        claimMission,
-        newGamePlus,
+      claimMission,
+      claimMissionAd,
+      newGamePlus,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

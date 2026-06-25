@@ -90,6 +90,7 @@ export interface DailyMission {
   completed: boolean;      // 완료 여부
   claimed: boolean;        // 보상 수령 여부
   reward: { coins: number; exp: number };
+  adRewardClaimed?: boolean; // 광고 시청 후 젬 +1 보상 수령 여부
 }
 
 export interface MissionState {
@@ -763,6 +764,27 @@ export function claimMissionReward(
       ...state.pet,
       exp: state.pet.exp + mission.reward.exp,
     },
+    missions: { ...state.missions, missions: updatedMissions },
+    lastSaveTime: Date.now(),
+  };
+}
+
+/** 광고 시청 후 미션 젬 +1 보상 지급 */
+export function claimMissionAdReward(
+  state: GameState,
+  missionId: string
+): GameState {
+  const mission = state.missions.missions.find(m => m.id === missionId);
+  // 미션이 완료되고 기본 보상은 수령했으나 광고 보상은 아직 수령 안 한 경우만 허용
+  if (!mission || !mission.claimed || mission.adRewardClaimed) return state;
+
+  const updatedMissions = state.missions.missions.map(m =>
+    m.id === missionId ? { ...m, adRewardClaimed: true } : m
+  );
+
+  return {
+    ...state,
+    gems: state.gems + 1,
     missions: { ...state.missions, missions: updatedMissions },
     lastSaveTime: Date.now(),
   };
