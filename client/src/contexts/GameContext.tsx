@@ -74,6 +74,7 @@ interface GameContextType {
   addFriendByGameId: (gameId: string) => Promise<{ success: boolean; message: string }>;
   removeFriend: (targetUid: string) => Promise<void>;
   copyMyGameId: () => Promise<boolean>;
+  setTutorialSeen: (gameId: string, seen: boolean) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -302,6 +303,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setPendingEvolution(null);
   }, []);
 
+  const setTutorialSeen = useCallback((gameId: string, seen: boolean) => {
+    setState(prev => ({
+      ...prev,
+      tutorialSeen: { ...(prev.tutorialSeen ?? {}), [gameId]: seen },
+    }));
+  }, []);
+
   return (
     <GameContext.Provider
       value={{
@@ -337,6 +345,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addFriendByGameId,
       removeFriend,
       copyMyGameId,
+      setTutorialSeen,
     }}
     >
       {children}

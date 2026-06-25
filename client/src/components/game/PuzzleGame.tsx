@@ -1,10 +1,12 @@
 /**
  * PuzzleGame - 별 퍼즐 미니게임
  * Cozy Nursery: 3×3 슬라이딩 퍼즐, 완성 시 보상 지급
+ * 방식 2: 게임 내 ❓ 도움말 버튼으로 튜토리얼 오버레이 표시
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { calcPuzzleReward } from '@/lib/gameState';
+import { TUTORIALS } from '@/lib/tutorialData';
 
 interface PuzzleGameProps {
   onClose: () => void;
@@ -56,6 +58,9 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
   const [rewarded, setRewarded] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
   const [puzzleReward, setPuzzleReward] = useState<{ coins: number; exp: number } | null>(null);
+  const [showHelp, setShowHelp] = useState(false); // ❓ 도움말 오버레이
+
+  const tutorial = TUTORIALS['toy_puzzle'];
 
   const handleTileClick = useCallback((index: number) => {
     if (solved) return;
@@ -111,8 +116,18 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         <h2 className="text-base font-bold text-warm-brown flex items-center gap-1.5">
           ⭐ 별 퍼즐
         </h2>
-        <div className="text-sm text-sub-brown font-medium min-w-[56px] text-right">
-          {moves}번 이동
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-sub-brown font-medium">
+            {moves}번 이동
+          </div>
+          {/* ❓ 도움말 버튼 (방식 2) */}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="w-8 h-8 rounded-full bg-white/80 shadow border border-border flex items-center justify-center text-base font-bold text-sub-brown hover:bg-amber-50 transition-colors"
+            aria-label="도움말"
+          >
+            ❓
+          </button>
         </div>
       </div>
 
@@ -224,6 +239,99 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         </div>
       )}
 
+      {/* ❓ 도움말 오버레이 (방식 2) */}
+      {showHelp && (
+        <div
+          className="absolute inset-0 z-60 flex items-end bg-black/50"
+          onClick={() => setShowHelp(false)}
+        >
+          <div
+            className="w-full bg-white rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up"
+            style={{ maxHeight: '85vh' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="bg-gradient-to-r from-amber-400 to-orange-400 px-5 pt-5 pb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{tutorial.gameIcon}</span>
+                <div>
+                  <h3 className="text-base font-bold text-white">{tutorial.gameTitle} 도움말</h3>
+                  <p className="text-xs text-white/80">{tutorial.subtitle}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 본문 스크롤 */}
+            <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+              {/* 게임 방법 */}
+              <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
+                <span>📖</span> 게임 방법
+              </h4>
+              <div className="space-y-2 mb-4">
+                {tutorial.steps.map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-3 bg-cream rounded-2xl p-3">
+                    <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-base">{step.icon}</span>
+                        <span className="text-sm font-semibold text-warm-brown">{step.title}</span>
+                      </div>
+                      <p className="text-xs text-sub-brown leading-relaxed">{step.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 보상 안내 */}
+              {tutorial.rewards && (
+                <>
+                  <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
+                    <span>🎁</span> 보상 안내
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {tutorial.rewards.map((r, idx) => (
+                      <div key={idx} className={`rounded-2xl p-3 border-2 ${r.color}`}>
+                        <div className="text-sm font-bold mb-0.5">{r.grade}</div>
+                        <div className="text-xs text-sub-brown mb-1">{r.condition}</div>
+                        <div className="text-xs font-semibold text-warm-brown">{r.reward}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* 팁 */}
+              {tutorial.tip && (
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4">
+                  <p className="text-xs text-blue-700 flex items-start gap-1.5">
+                    <span className="text-base flex-shrink-0">💡</span>
+                    <span>{tutorial.tip}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 닫기 버튼 */}
+            <div className="px-5 pb-6 pt-3 border-t border-border">
+              <button
+                onClick={() => setShowHelp(false)}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold text-sm rounded-2xl shadow-md"
+              >
+                계속 풀기 🎮
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fade-in {
           from { opacity: 0; transform: scale(0.97); }
@@ -233,11 +341,18 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
           from { opacity: 0; transform: scale(0.85); }
           to { opacity: 1; transform: scale(1); }
         }
+        @keyframes slide-up {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
         .animate-fade-in {
           animation: fade-in 250ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
         }
         .animate-pop-in {
           animation: pop-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .animate-slide-up {
+          animation: slide-up 300ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
         }
       `}</style>
     </div>

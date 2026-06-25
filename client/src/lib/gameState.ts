@@ -55,6 +55,7 @@ export interface GameState {
   claimedCollectionRewards: string[]; // 보상 수령한 도감 종족 목록
   friendCoins: number;                // 친구 전용 코인 (소셜 가구 구매용)
   nickname: string;                    // 플레이어 닉네임 (반려몬 이름과 별개)
+  tutorialSeen: Record<string, boolean>; // 튜토리얼 완료 플래그 (게임 ID → 완료 여부)
 }
 
 export interface InventoryItem {
@@ -265,10 +266,10 @@ export const INITIAL_GAME_STATE: GameState = {
   },
   claimedEvolutionRewards: [],
   claimedCollectionRewards: [],
-  friendCoins: 0,
+    friendCoins: 0,
   nickname: '',
+  tutorialSeen: {},
 };
-
 // ===== 시간 경과 로직 =====
 
 const DECAY_RATES: Record<keyof PetStatus, number> = {
@@ -912,6 +913,10 @@ export function loadGame(): GameState | null {
     // totalPlayDays 필드 마이그레이션
     if (typeof data.totalPlayDays !== 'number') {
       data.totalPlayDays = 0;
+    }
+    // tutorialSeen 필드 마이그레이션
+    if (!data.tutorialSeen || typeof data.tutorialSeen !== 'object' || Array.isArray(data.tutorialSeen)) {
+      data.tutorialSeen = {};
     }
     return data;
   } catch {
