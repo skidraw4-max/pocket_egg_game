@@ -34,7 +34,7 @@ import {
   applyCollectionReward,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
-import { useFirebaseSync, type RankingEntry, type VisitorEntry } from '@/hooks/useFirebaseSync';
+import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type FriendProfile } from '@/hooks/useFirebaseSync';
 
 export type PetAction = 'idle' | 'eating' | 'playing' | 'cleaning' | 'sleeping';
 
@@ -63,7 +63,11 @@ interface GameContextType {
   lastSynced: Date | null;
   ranking: RankingEntry[];
   visitors: VisitorEntry[];
-  visitFriend: (targetUid: string, myNickname: string) => Promise<void>;
+  friends: FriendEntry[];
+  visitFriend: (targetUid: string, myNickname: string) => Promise<{ success: boolean; message: string }>;
+  addFriend: (targetUid: string) => Promise<{ success: boolean; message: string; profile?: FriendProfile }>;
+  removeFriend: (targetUid: string) => Promise<void>;
+  copyMyUid: () => Promise<boolean>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -87,7 +91,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const clearAttendanceResult = useCallback(() => setAttendanceResult(null), []);
 
   // Firebase 동기화 훅
-  const { uid, syncing, lastSynced, ranking, visitors, visitFriend, loadFromCloud } =
+  const { uid, syncing, lastSynced, ranking, visitors, friends, visitFriend, addFriend, removeFriend, copyMyUid, loadFromCloud } =
     useFirebaseSync(state);
 
   // 앱 시작 시 클라우드 데이터와 병합 (더 최근 데이터 우선)
@@ -298,7 +302,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       lastSynced,
       ranking,
       visitors,
+      friends,
       visitFriend,
+      addFriend,
+      removeFriend,
+      copyMyUid,
     }}
     >
       {children}
