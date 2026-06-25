@@ -224,14 +224,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, [playSound]);
 
   const purchase = useCallback((item: ShopItemDef): PurchaseResult => {
-    let result: PurchaseResult = { success: false, reason: 'insufficient_funds' };
-    setState(prev => {
-      result = purchaseItem(prev, item);
-      if (result.success) return advanceMission(result.newState, 'shop');
-      return prev;
-    });
+    // purchaseItem을 setState 외부에서 현재 state를 직접 참조하여 실행
+    // setState 콜백은 비동기적으로 실행되므로 result를 콜백 내부에서 읽으면
+    // 항상 초기값(insufficient_funds)이 반환되는 stale closure 버그가 발생함
+    const result = purchaseItem(state, item);
+    if (result.success) {
+      setState(prev => {
+        // 최신 prev 기준으로 재계산 (동시 업데이트 안전성 확보)
+        const r = purchaseItem(prev, item);
+        if (r.success) return advanceMission(r.newState, 'shop');
+        return prev;
+      });
+    }
     return result;
-  }, []);
+  }, [state]);
 
   const rename = useCallback((newName: string) => {
     setState(prev => renamePet(prev, newName));
