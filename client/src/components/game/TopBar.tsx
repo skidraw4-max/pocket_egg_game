@@ -102,7 +102,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
 
           {/* 볼륨 슬라이더 (토글) */}
           {showVolumeSlider && (
-            <div className="absolute bottom-12 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-2xl px-3 py-3 shadow-lg whitespace-nowrap z-50">
+            <div className="absolute top-12 right-0 bg-white/90 backdrop-blur-md rounded-2xl px-3 py-3 shadow-lg whitespace-nowrap z-50">
               <div className="flex items-center gap-2">
                 <input
                   type="range"
