@@ -28,6 +28,15 @@ import { usePushNotification } from '@/hooks/usePushNotification';
 
 export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall' | 'social' | 'nickname';
 
+/** wallpaper ID → 이미지 URL 매핑 */
+const WALLPAPER_URLS: Record<string, string> = {
+  default:           'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-room-bg-RWqGiSQbzfCq5GS93bZek3.webp',
+  wallpaper_forest:  'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/EDyFLiIKoVTNidnh.png',
+  wallpaper_ocean:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fpjUTdQSftHkbLXj.png',
+  wallpaper_cloud:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/jQMljEkJnwaQEIjS.png',
+  wallpaper_candy:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/vuxdWHKrUrCnFAUo.png',
+};
+
 export default function Home() {
   const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult, syncing } = useGame();
   const { playBGM } = useSound();
@@ -62,11 +71,11 @@ export default function Home() {
       // 사용자 인터랙션 후 BGM 재생 (자동 재생 정책 우회)
       playBGM('main-room');
     }}>
-      {/* 배경 이미지 */}
+      {/* 배경 이미지 — 구매한 wallpaper ID에 따라 동적 변경 */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
         style={{
-          backgroundImage: `url(https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-room-bg-RWqGiSQbzfCq5GS93bZek3.webp)`,
+          backgroundImage: `url(${WALLPAPER_URLS[state.room?.wallpaper ?? 'default'] ?? WALLPAPER_URLS['default']})`,
         }}
       />
       {/* 반투명 오버레이 */}

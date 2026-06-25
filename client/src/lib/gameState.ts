@@ -56,6 +56,7 @@ export interface GameState {
   friendCoins: number;                // 친구 전용 코인 (소셜 가구 구매용)
   nickname: string;                    // 플레이어 닉네임 (반려몬 이름과 별개)
   tutorialSeen: Record<string, boolean>; // 튜토리얼 완료 플래그 (게임 ID → 완료 여부)
+  ownedWallpapers: string[];               // 구매한 배경 ID 목록
 }
 
 export interface InventoryItem {
@@ -269,6 +270,7 @@ export const INITIAL_GAME_STATE: GameState = {
     friendCoins: 0,
   nickname: '',
   tutorialSeen: {},
+  ownedWallpapers: [],
 };
 // ===== 시간 경과 로직 =====
 
@@ -600,13 +602,15 @@ export function renamePet(state: GameState, newName: string): GameState {
 export interface ShopItemDef {
   id: string;
   name: string;
-  type: 'food' | 'toy' | 'decor';
+  type: 'food' | 'toy' | 'decor' | 'wallpaper';
   icon: string;
   price: number;
   currency: 'coins' | 'gems' | 'friendCoins';
   description: string;
   /** 인벤토리에 추가할 아이템 정의 (food/toy) */
   inventoryItem?: Omit<InventoryItem, 'quantity'>;
+  /** 배경 이미지 URL (wallpaper 전용) */
+  wallpaperUrl?: string;
 }
 
 export type PurchaseResult =
@@ -627,6 +631,29 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
   const newCoins       = item.currency === 'coins'       ? state.coins - item.price : state.coins;
   const newGems        = item.currency === 'gems'        ? state.gems  - item.price : state.gems;
   const newFriendCoins = item.currency === 'friendCoins' ? (state.friendCoins ?? 0) - item.price : (state.friendCoins ?? 0);
+
+  // 배경(wallpaper) 처리: ownedWallpapers 배열에 추가 후 즉시 적용
+  if (item.type === 'wallpaper') {
+    const owned = state.ownedWallpapers ?? [];
+    if (owned.includes(item.id)) {
+      return { success: false, reason: 'already_owned' };
+    }
+    return {
+      success: true,
+      newState: {
+        ...state,
+        coins: newCoins,
+        gems: newGems,
+        friendCoins: newFriendCoins,
+        ownedWallpapers: [...owned, item.id],
+        room: {
+          ...state.room,
+          wallpaper: item.id,
+        },
+        lastSaveTime: Date.now(),
+      },
+    };
+  }
 
   // 가구(decor) 처리: room.furniture 배열에 추가 (중복 허용 안 함)
   if (item.type === 'decor') {
@@ -917,6 +944,10 @@ export function loadGame(): GameState | null {
     // tutorialSeen 필드 마이그레이션
     if (!data.tutorialSeen || typeof data.tutorialSeen !== 'object' || Array.isArray(data.tutorialSeen)) {
       data.tutorialSeen = {};
+    }
+    // ownedWallpapers 필드 마이그레이션
+    if (!Array.isArray(data.ownedWallpapers)) {
+      data.ownedWallpapers = [];
     }
     return data;
   } catch {

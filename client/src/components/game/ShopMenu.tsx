@@ -10,7 +10,51 @@ interface ShopMenuProps {
   onClose: () => void;
 }
 
-type TabType = 'food' | 'toy' | 'decor' | 'social';
+type TabType = 'food' | 'toy' | 'decor' | 'wallpaper' | 'social';
+
+/** 배경 아이템 카탈로그 */
+const WALLPAPER_ITEMS: ShopItemDef[] = [
+  {
+    id: 'wallpaper_forest',
+    name: '마법 숲의 방',
+    type: 'wallpaper',
+    icon: '🌿',
+    price: 200,
+    currency: 'coins',
+    description: '반딧불이와 버섯이 빛나는 신비로운 숲',
+    wallpaperUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/EDyFLiIKoVTNidnh.png',
+  },
+  {
+    id: 'wallpaper_ocean',
+    name: '바닷속 아지트',
+    type: 'wallpaper',
+    icon: '🐚',
+    price: 200,
+    currency: 'coins',
+    description: '산호와 조개로 꾸며진 해저 방',
+    wallpaperUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/fpjUTdQSftHkbLXj.png',
+  },
+  {
+    id: 'wallpaper_cloud',
+    name: '구름 성 침실',
+    type: 'wallpaper',
+    icon: '🌈',
+    price: 5,
+    currency: 'gems',
+    description: '무지개와 별빛이 가득한 하늘 성',
+    wallpaperUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/jQMljEkJnwaQEIjS.png',
+  },
+  {
+    id: 'wallpaper_candy',
+    name: '달콤한 과자 가게',
+    type: 'wallpaper',
+    icon: '🍭',
+    price: 5,
+    currency: 'gems',
+    description: '사탕과 케이크로 가득 찬 달콤한 방',
+    wallpaperUrl: 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/vuxdWHKrUrCnFAUo.png',
+  },
+];
 
 /** 일반 상점 아이템 카탈로그 */
 const SHOP_ITEMS: ShopItemDef[] = [
@@ -261,14 +305,19 @@ interface Toast {
 }
 
 export default function ShopMenu({ onClose }: ShopMenuProps) {
-  const { state, purchase, friendCoins } = useGame();
+  const { state, purchase } = useGame();
   const [activeTab, setActiveTab] = useState<TabType>('food');
   const [toast, setToast] = useState<Toast | null>(null);
+  const [previewWallpaper, setPreviewWallpaper] = useState<string | null>(null);
 
   const isSocialTab = activeTab === 'social';
+  const isWallpaperTab = activeTab === 'wallpaper';
+
   const currentItems = isSocialTab
     ? SOCIAL_ITEMS
-    : SHOP_ITEMS.filter(item => item.type === activeTab);
+    : isWallpaperTab
+      ? WALLPAPER_ITEMS
+      : SHOP_ITEMS.filter(item => item.type === activeTab);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
@@ -292,14 +341,21 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
       return;
     }
 
-    showToast(`${item.name} 구매 완료!`, 'success');
+    showToast(`${item.name} 구매 완료! 배경이 적용됐어요 🎉`, 'success');
   };
 
   const isOwned = (item: ShopItemDef) => {
     if (item.type === 'decor') {
       return (state.room?.furniture ?? []).includes(item.id);
     }
+    if (item.type === 'wallpaper') {
+      return (state.ownedWallpapers ?? []).includes(item.id);
+    }
     return false;
+  };
+
+  const isActiveWallpaper = (item: ShopItemDef) => {
+    return item.type === 'wallpaper' && state.room?.wallpaper === item.id;
   };
 
   const canAfford = (item: ShopItemDef) => {
@@ -316,6 +372,7 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     { id: 'food', label: '먹이', icon: '🍖' },
     { id: 'toy', label: '장난감', icon: '🎾' },
     { id: 'decor', label: '가구', icon: '🏠' },
+    { id: 'wallpaper', label: '배경', icon: '🖼️' },
     { id: 'social', label: '소셜', icon: '🤝' },
   ];
 
@@ -334,7 +391,7 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
   return (
     <div className="absolute inset-0 z-50 flex items-end" onClick={onClose}>
       <div
-        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl p-5 shadow-2xl animate-slide-up max-h-[75vh] flex flex-col"
+        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl p-5 shadow-2xl animate-slide-up max-h-[80vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -360,16 +417,18 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
+              className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 activeTab === tab.id
                   ? tab.id === 'social'
                     ? 'bg-purple-500 text-white'
-                    : 'bg-peach text-white'
+                    : tab.id === 'wallpaper'
+                      ? 'bg-[oklch(0.75_0.12_280)] text-white'
+                      : 'bg-peach text-white'
                   : 'bg-cream text-warm-brown'
               }`}
             >
@@ -395,76 +454,175 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
           </div>
         )}
 
-        {/* 상품 목록 */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 pb-2">
-          {currentItems.map(item => {
-            const owned = isOwned(item);
-            const affordable = canAfford(item);
-            const qty = item.type !== 'decor' ? getInventoryQty(item.id) : null;
+        {/* 배경 탭 안내 배너 */}
+        {isWallpaperTab && (
+          <div className="mb-3 bg-[oklch(0.96_0.04_280)]/60 border border-[oklch(0.85_0.08_280)] rounded-2xl px-3 py-2.5 flex items-center gap-2">
+            <span className="text-lg">🖼️</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-[oklch(0.50_0.15_280)]">방 배경 변경</p>
+              <p className="text-xs text-[oklch(0.60_0.10_280)]">
+                구매 즉시 방 배경이 바뀌어요. 이미지를 눌러 미리 볼 수 있어요!
+              </p>
+            </div>
+          </div>
+        )}
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => !owned && handlePurchase(item)}
-                disabled={owned}
-                className={`
-                  relative flex flex-col items-center gap-1 p-3 rounded-2xl border
-                  transition-all duration-150
-                  ${owned
-                    ? 'bg-muted/50 border-border opacity-60 cursor-default'
-                    : affordable
-                      ? item.currency === 'friendCoins'
-                        ? 'bg-purple-50 border-purple-200 active:scale-95'
-                        : 'bg-cream border-border cushion-btn active:scale-95'
-                      : 'bg-cream border-border cushion-btn active:scale-95 opacity-70'
-                  }
-                `}
-              >
-                {/* 소셜 전용 뱃지 */}
-                {item.currency === 'friendCoins' && !owned && (
-                  <span className="absolute top-2 left-2 text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-                    소셜
-                  </span>
-                )}
+        {/* 배경 탭: 이미지 미리보기 카드 */}
+        {isWallpaperTab ? (
+          <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+            {WALLPAPER_ITEMS.map(item => {
+              const owned = isOwned(item);
+              const active = isActiveWallpaper(item);
+              const affordable = canAfford(item);
 
-                {/* 보유 중 뱃지 */}
-                {owned && (
-                  <span className="absolute top-2 right-2 text-[10px] bg-mint text-warm-brown px-1.5 py-0.5 rounded-full font-bold">
-                    보유
-                  </span>
-                )}
+              return (
+                <div
+                  key={item.id}
+                  className={`relative rounded-2xl overflow-hidden border-2 transition-all ${
+                    active
+                      ? 'border-[oklch(0.75_0.12_280)] shadow-lg'
+                      : owned
+                        ? 'border-mint'
+                        : 'border-border'
+                  }`}
+                >
+                  {/* 배경 미리보기 이미지 */}
+                  <div
+                    className="w-full h-36 bg-cover bg-center cursor-pointer"
+                    style={{ backgroundImage: `url(${item.wallpaperUrl})` }}
+                    onClick={() => setPreviewWallpaper(previewWallpaper === item.id ? null : item.id)}
+                  />
 
-                {/* 인벤토리 수량 뱃지 */}
-                {qty !== null && qty > 0 && (
-                  <span className="absolute top-2 right-2 text-[10px] bg-peach/80 text-white px-1.5 py-0.5 rounded-full font-bold">
-                    ×{qty}
-                  </span>
-                )}
+                  {/* 정보 + 구매 버튼 */}
+                  <div className="bg-white/95 px-3 py-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-xl">{item.icon}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-warm-brown truncate">{item.name}</p>
+                        <p className="text-[10px] text-sub-brown truncate">{item.description}</p>
+                      </div>
+                    </div>
 
-                <span className="text-3xl">{item.icon}</span>
-                <span className="text-xs font-semibold text-warm-brown text-center">{item.name}</span>
-                <span className="text-[10px] text-sub-brown text-center">{item.description}</span>
+                    {active ? (
+                      <span className="flex-shrink-0 text-[10px] font-bold bg-[oklch(0.75_0.12_280)] text-white px-2.5 py-1 rounded-full">
+                        적용 중
+                      </span>
+                    ) : owned ? (
+                      <button
+                        onClick={() => handleApplyWallpaper(item)}
+                        className="flex-shrink-0 text-[10px] font-bold bg-mint text-warm-brown px-2.5 py-1 rounded-full active:scale-95 transition-transform"
+                      >
+                        적용하기
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePurchase(item)}
+                        className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all active:scale-95 ${
+                          affordable
+                            ? item.currency === 'gems'
+                              ? 'bg-[oklch(0.75_0.12_280)] text-white'
+                              : 'bg-peach text-white'
+                            : 'bg-muted text-sub-brown opacity-70'
+                        }`}
+                      >
+                        <span>{getCurrencyIcon(item.currency)}</span>
+                        <span>{item.price}</span>
+                        {!affordable && <span className="text-[9px]">부족</span>}
+                      </button>
+                    )}
+                  </div>
 
-                {/* 가격 */}
-                <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${
-                  affordable ? 'bg-white/60' : 'bg-white/30'
-                }`}>
-                  <span className="text-xs">{getCurrencyIcon(item.currency)}</span>
-                  <span className={`text-xs font-bold ${
-                    affordable
-                      ? item.currency === 'friendCoins' ? 'text-purple-600' : 'text-peach'
-                      : 'text-sub-brown'
-                  }`}>
-                    {item.price}
-                  </span>
-                  {!affordable && (
-                    <span className="text-[9px] text-sub-brown">부족</span>
+                  {/* 전체 미리보기 오버레이 */}
+                  {previewWallpaper === item.id && (
+                    <div
+                      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+                      onClick={() => setPreviewWallpaper(null)}
+                    >
+                      <div className="relative w-[80vw] max-w-xs rounded-3xl overflow-hidden shadow-2xl">
+                        <img src={item.wallpaperUrl} alt={item.name} className="w-full h-auto" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-4 py-2 text-center">
+                          <p className="text-white text-xs font-bold">{item.name}</p>
+                          <p className="text-white/70 text-[10px]">탭하여 닫기</p>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </button>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* 일반 상품 목록 (food / toy / decor / social) */
+          <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 pb-2">
+            {currentItems.map(item => {
+              const owned = isOwned(item);
+              const affordable = canAfford(item);
+              const qty = item.type !== 'decor' ? getInventoryQty(item.id) : null;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => !owned && handlePurchase(item)}
+                  disabled={owned}
+                  className={`
+                    relative flex flex-col items-center gap-1 p-3 rounded-2xl border
+                    transition-all duration-150
+                    ${owned
+                      ? 'bg-muted/50 border-border opacity-60 cursor-default'
+                      : affordable
+                        ? item.currency === 'friendCoins'
+                          ? 'bg-purple-50 border-purple-200 active:scale-95'
+                          : 'bg-cream border-border cushion-btn active:scale-95'
+                        : 'bg-cream border-border cushion-btn active:scale-95 opacity-70'
+                    }
+                  `}
+                >
+                  {/* 소셜 전용 뱃지 */}
+                  {item.currency === 'friendCoins' && !owned && (
+                    <span className="absolute top-2 left-2 text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      소셜
+                    </span>
+                  )}
+
+                  {/* 보유 중 뱃지 */}
+                  {owned && (
+                    <span className="absolute top-2 right-2 text-[10px] bg-mint text-warm-brown px-1.5 py-0.5 rounded-full font-bold">
+                      보유
+                    </span>
+                  )}
+
+                  {/* 인벤토리 수량 뱃지 */}
+                  {qty !== null && qty > 0 && (
+                    <span className="absolute top-2 right-2 text-[10px] bg-peach/80 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      ×{qty}
+                    </span>
+                  )}
+
+                  <span className="text-3xl">{item.icon}</span>
+                  <span className="text-xs font-semibold text-warm-brown text-center">{item.name}</span>
+                  <span className="text-[10px] text-sub-brown text-center">{item.description}</span>
+
+                  {/* 가격 */}
+                  <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${
+                    affordable ? 'bg-white/60' : 'bg-white/30'
+                  }`}>
+                    <span className="text-xs">{getCurrencyIcon(item.currency)}</span>
+                    <span className={`text-xs font-bold ${
+                      affordable
+                        ? item.currency === 'friendCoins' ? 'text-purple-600' : 'text-peach'
+                        : 'text-sub-brown'
+                    }`}>
+                      {item.price}
+                    </span>
+                    {!affordable && (
+                      <span className="text-[9px] text-sub-brown">부족</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* 토스트 메시지 */}
         {toast && (
@@ -492,4 +650,10 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
       </div>
     </div>
   );
+
+  function handleApplyWallpaper(item: ShopItemDef) {
+    // 이미 보유한 배경을 다시 적용 (재화 차감 없이 wallpaper만 변경)
+    purchase({ ...item, price: 0 });
+    showToast(`${item.name} 배경이 적용됐어요!`, 'success');
+  }
 }
