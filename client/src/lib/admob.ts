@@ -22,8 +22,8 @@ export interface AdResult {
 }
 
 /** AdMob 광고 단위 ID */
-const REWARDED_AD_UNIT_ID =
-  (import.meta as any).env?.VITE_ADMOB_REWARDED_AD_UNIT_ID ?? '';
+const REWARDED_AD_UNIT_ID: string =
+  import.meta.env.VITE_ADMOB_REWARDED_AD_UNIT_ID ?? '';
 
 /** 광고 SDK 로드 여부 */
 let adSdkLoaded = false;
