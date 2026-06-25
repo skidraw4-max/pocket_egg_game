@@ -23,9 +23,10 @@ import StatusAlert from '@/components/game/StatusAlert';
 import DailyBonus from '@/components/game/DailyBonus';
 import PWAPrompt from '@/components/game/PWAPrompt';
 import SocialMenu from '@/components/game/SocialMenu';
+import NicknameModal from '@/components/game/NicknameModal';
 import { usePushNotification } from '@/hooks/usePushNotification';
 
-export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall' | 'social';
+export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall' | 'social' | 'nickname';
 
 export default function Home() {
   const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult, syncing } = useGame();
@@ -84,6 +85,8 @@ export default function Home() {
           onQuestClick={() => setActiveMenu('quest')}
           onHallClick={(state.pet.stage === 'adult' && state.pet.species === '레전드몬') || state.pet.stage === 'mythic' ? () => setActiveMenu('hall') : undefined}
           onSocialClick={() => setActiveMenu('social')}
+          onNicknameClick={() => setActiveMenu('nickname')}
+          nickname={state.nickname}
           syncing={syncing}
           unclaimedMissions={
             state.missions.missions.filter(m => m.completed && !m.claimed).length
@@ -130,6 +133,9 @@ export default function Home() {
       )}
       {activeMenu === 'social' && (
         <SocialMenu onClose={() => setActiveMenu('none')} />
+      )}
+      {activeMenu === 'nickname' && (
+        <NicknameModal onClose={() => setActiveMenu('none')} />
       )}
 
       {/* 상태 임계치 알림 */}

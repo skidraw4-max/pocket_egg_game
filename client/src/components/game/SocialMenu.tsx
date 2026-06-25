@@ -29,7 +29,9 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const [visitStatus, setVisitStatus] = useState<{ uid: string; msg: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const myNickname = state.pet?.name ?? '알 주인';
+  const myNickname = (state.nickname && state.nickname.trim())
+    ? state.nickname.trim()
+    : (state.pet?.name ?? '알 주인');
 
   // ── 친구 추가 ──────────────────────────────
   const handleAdd = async () => {

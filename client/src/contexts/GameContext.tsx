@@ -32,6 +32,7 @@ import {
   applyLevelUpReward,
   applyEvolutionReward,
   applyCollectionReward,
+  setPlayerNickname,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
@@ -47,6 +48,7 @@ interface GameContextType {
   touch: () => void;
   purchase: (item: ShopItemDef) => PurchaseResult;
   rename: (newName: string) => void;
+  setNickname: (nickname: string) => void;
   claimMission: (missionId: string) => void;
   newGamePlus: () => void;
   pendingEvolution: EvolutionResult | null;
@@ -233,6 +235,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => renamePet(prev, newName));
   }, []);
 
+  const setNickname = useCallback((nickname: string) => {
+    setState(prev => setPlayerNickname(prev, nickname));
+  }, []);
+
   const claimMission = useCallback((missionId: string) => {
     setState(prev => checkProgression(claimMissionReward(prev, missionId)));
   }, [checkProgression]);
@@ -290,6 +296,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         touch,
         purchase,
         rename,
+        setNickname,
         claimMission,
         newGamePlus,
         pendingEvolution,

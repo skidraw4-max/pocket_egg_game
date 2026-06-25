@@ -54,6 +54,7 @@ export interface GameState {
   claimedEvolutionRewards: string[];  // 보상 수령한 진화 종족 목록
   claimedCollectionRewards: string[]; // 보상 수령한 도감 종족 목록
   friendCoins: number;                // 친구 전용 코인 (소셜 가구 구매용)
+  nickname: string;                    // 플레이어 닉네임 (반려몬 이름과 별개)
 }
 
 export interface InventoryItem {
@@ -265,6 +266,7 @@ export const INITIAL_GAME_STATE: GameState = {
   claimedEvolutionRewards: [],
   claimedCollectionRewards: [],
   friendCoins: 0,
+  nickname: '',
 };
 
 // ===== 시간 경과 로직 =====
@@ -569,6 +571,17 @@ function getDominantTrait(traits: GrowthTraits): string {
 }
 
 // ===== 이름 변경 =====
+
+/** 플레이어 닉네임 변경 (반려몬 이름과 별개) */
+export function setPlayerNickname(state: GameState, nickname: string): GameState {
+  const trimmed = nickname.trim();
+  if (!trimmed || trimmed.length > 12) return state;
+  return {
+    ...state,
+    nickname: trimmed,
+    lastSaveTime: Date.now(),
+  };
+}
 
 export function renamePet(state: GameState, newName: string): GameState {
   const trimmed = newName.trim();

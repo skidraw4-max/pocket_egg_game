@@ -98,7 +98,10 @@ export function useFirebaseSync(state: GameState | null) {
       debounceRef.current = setTimeout(async () => {
         setSyncing(true);
         try {
-          const nickname = gameState.pet?.name ?? '알 주인';
+          // 플레이어 닉네임 우선, 없으면 반려몬 이름 사용
+          const nickname = (gameState.nickname && gameState.nickname.trim())
+            ? gameState.nickname.trim()
+            : (gameState.pet?.name ?? '알 주인');
           const level = gameState.level ?? 1;
           const stage = gameState.pet?.stage ?? 'egg';
           const coins = gameState.coins ?? 0;
@@ -235,7 +238,9 @@ export function useFirebaseSync(state: GameState | null) {
       const targetStage = targetProfile?.stage ?? 'egg';
       const targetGameId = targetProfile?.gameId ?? normalized;
 
-      const myNickname = state?.pet?.name ?? '알 주인';
+      const myNickname = (state?.nickname && state.nickname.trim())
+        ? state.nickname.trim()
+        : (state?.pet?.name ?? '알 주인');
       const myLevel = state?.level ?? 1;
       const myStage = state?.pet?.stage ?? 'egg';
       const now = Date.now();

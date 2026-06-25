@@ -12,11 +12,13 @@ interface TopBarProps {
   onQuestClick?: () => void;
   onHallClick?: () => void;
   onSocialClick?: () => void;
+  onNicknameClick?: () => void;
+  nickname?: string;
   unclaimedMissions?: number;
   syncing?: boolean;
 }
 
-export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, onHallClick, onSocialClick, unclaimedMissions = 0, syncing = false }: TopBarProps) {
+export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, onHallClick, onSocialClick, onNicknameClick, nickname, unclaimedMissions = 0, syncing = false }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   return (
@@ -68,6 +70,19 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
             🌐 소셜
             {syncing && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
+            )}
+          </button>
+        )}
+        {onNicknameClick && (
+          <button
+            onClick={onNicknameClick}
+            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="닉네임 설정"
+          >
+            {nickname ? (
+              <span className="max-w-[60px] truncate">👤 {nickname}</span>
+            ) : (
+              <span>👤 닉네임</span>
             )}
           </button>
         )}
