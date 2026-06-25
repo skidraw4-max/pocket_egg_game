@@ -31,6 +31,14 @@ export interface GrowthTraits {
   vitality: number;  // 활력 성향
 }
 
+export interface AttendanceState {
+  lastLoginDate: string;    // 'YYYY-MM-DD'
+  streak: number;           // 연속 출석일
+  totalDays: number;        // 누적 출석일
+  weeklyMissionsClaimed: boolean; // 이번 주 주간 보상 수령 여부
+  lastWeekStr: string;      // 'YYYY-Www' 형식
+}
+
 export interface GameState {
   pet: PetProfile;
   status: PetStatus;
@@ -42,6 +50,9 @@ export interface GameState {
   lastSaveTime: number;
   totalPlayDays: number;
   missions: MissionState;
+  attendance: AttendanceState;
+  claimedEvolutionRewards: string[];  // 보상 수령한 진화 종족 목록
+  claimedCollectionRewards: string[]; // 보상 수령한 도감 종족 목록
 }
 
 export interface InventoryItem {
@@ -243,6 +254,15 @@ export const INITIAL_GAME_STATE: GameState = {
   lastSaveTime: Date.now(),
   totalPlayDays: 1,
   missions: INITIAL_MISSION_STATE,
+  attendance: {
+    lastLoginDate: '',
+    streak: 0,
+    totalDays: 0,
+    weeklyMissionsClaimed: false,
+    lastWeekStr: '',
+  },
+  claimedEvolutionRewards: [],
+  claimedCollectionRewards: [],
 };
 
 // ===== 시간 경과 로직 =====
@@ -702,6 +722,122 @@ export function needsMissionReset(state: GameState): boolean {
   return state.missions.lastResetDate !== todayStr();
 }
 
+// ===== 주간 문자열 유틸리 =====
+function getWeekStr(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+// ===== 재화 보상 함수 =====
+
+/** 출석 체크 및 보상 지급 */
+export interface AttendanceResult {
+  isNewDay: boolean;
+  streak: number;
+  coinsEarned: number;
+  gemsEarned: number;
+}
+
+export function processAttendance(state: GameState): { newState: GameState; result: AttendanceResult } {
+  const today = todayStr();
+  const att = state.attendance;
+
+  // 오늘 이미 출석 처리한 경우
+  if (att.lastLoginDate === today) {
+    return { newState: state, result: { isNewDay: false, streak: att.streak, coinsEarned: 0, gemsEarned: 0 } };
+  }
+
+  // 연속 출석 계산
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const newStreak = att.lastLoginDate === yesterdayStr ? att.streak + 1 : 1;
+
+  // 코인 보상: 연속일수에 따라 점진적 증가
+  const baseCoins = 50;
+  const bonusCoins = Math.min((newStreak - 1) * 10, 150); // 최대 +150
+  const coinsEarned = baseCoins + bonusCoins;
+
+  // 젠 보상: 7일 단위로 1점
+  const gemsEarned = newStreak % 7 === 0 ? 1 : 0;
+
+  // 주간 미션 완료 여부 확인 (모든 미션 수령 완료되면 주간 보상)
+  const currentWeek = getWeekStr(new Date());
+  const allClaimed = state.missions.missions.every(m => m.claimed);
+  const weeklyGems = allClaimed && att.lastWeekStr !== currentWeek ? 3 : 0;
+
+  return {
+    newState: {
+      ...state,
+      coins: state.coins + coinsEarned,
+      gems: state.gems + gemsEarned + weeklyGems,
+      attendance: {
+        lastLoginDate: today,
+        streak: newStreak,
+        totalDays: att.totalDays + 1,
+        weeklyMissionsClaimed: weeklyGems > 0 ? true : att.weeklyMissionsClaimed,
+        lastWeekStr: weeklyGems > 0 ? currentWeek : att.lastWeekStr,
+      },
+      lastSaveTime: Date.now(),
+    },
+    result: { isNewDay: true, streak: newStreak, coinsEarned, gemsEarned: gemsEarned + weeklyGems },
+  };
+}
+
+/** 레벨업 코인 보상 */
+export function applyLevelUpReward(state: GameState, newLevel: number): GameState {
+  const coins = newLevel * 10;
+  return { ...state, coins: state.coins + coins };
+}
+
+/** 진화 달성 보상 (1회성) */
+const EVOLUTION_REWARDS: Record<string, { coins: number; gems: number }> = {
+  '아기':   { coins: 0,   gems: 0 },
+  '어린이': { coins: 200, gems: 1 },
+  '청소년': { coins: 300, gems: 2 },
+  '성체':   { coins: 500, gems: 3 },
+  '전설':   { coins: 1000, gems: 5 },
+};
+
+export function applyEvolutionReward(state: GameState, newStage: string): GameState {
+  const stageLabel: Record<string, string> = {
+    baby: '아기', child: '어린이', teen: '청소년', adult: '성체', mythic: '전설',
+  };
+  const label = stageLabel[newStage];
+  const rewardKey = `${state.pet.species}_${newStage}`;
+  if (!label || state.claimedEvolutionRewards.includes(rewardKey)) return state;
+
+  const reward = EVOLUTION_REWARDS[label] || { coins: 0, gems: 0 };
+  return {
+    ...state,
+    coins: state.coins + reward.coins,
+    gems: state.gems + reward.gems,
+    claimedEvolutionRewards: [...state.claimedEvolutionRewards, rewardKey],
+  };
+}
+
+/** 도감 등록 보상 (1회성) */
+export function applyCollectionReward(state: GameState, species: string): GameState {
+  if (state.claimedCollectionRewards.includes(species)) return state;
+  return {
+    ...state,
+    coins: state.coins + 100,
+    claimedCollectionRewards: [...state.claimedCollectionRewards, species],
+  };
+}
+
+/** 퍼즐 점수 보상 (이동 수에 따라 차등) */
+export function calcPuzzleReward(moves: number): { coins: number; exp: number } {
+  if (moves <= 20)      return { coins: 30, exp: 20 }; // 퍼펙트
+  if (moves <= 30)      return { coins: 20, exp: 17 }; // 우수
+  if (moves <= 50)      return { coins: 10, exp: 15 }; // 일반
+  return                       { coins: 5,  exp: 12 }; // 완성
+}
+
 // ===== 저장/불러오기 =====
 
 const SAVE_KEY = 'pocket_egg_save';
@@ -723,10 +859,15 @@ export function loadGame(): GameState | null {
     if (!data.pet.stage) {
       data.pet.stage = 'baby';
     }
-    // egg 단계가 없던 구버전 호환성
     if (!['egg', 'baby', 'child', 'teen', 'adult', 'mythic'].includes(data.pet.stage)) {
       data.pet.stage = 'baby';
     }
+    // 구버전 데이터 마이그레이션
+    if (!data.attendance) {
+      data.attendance = { lastLoginDate: '', streak: 0, totalDays: 0, weeklyMissionsClaimed: false, lastWeekStr: '' };
+    }
+    if (!data.claimedEvolutionRewards) data.claimedEvolutionRewards = [];
+    if (!data.claimedCollectionRewards) data.claimedCollectionRewards = [];
     return data;
   } catch {
     return null;

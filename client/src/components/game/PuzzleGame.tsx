@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/contexts/GameContext';
+import { calcPuzzleReward } from '@/lib/gameState';
 
 interface PuzzleGameProps {
   onClose: () => void;
@@ -54,6 +55,7 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
   const [solved, setSolved] = useState(false);
   const [rewarded, setRewarded] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
+  const [puzzleReward, setPuzzleReward] = useState<{ coins: number; exp: number } | null>(null);
 
   const handleTileClick = useCallback((index: number) => {
     if (solved) return;
@@ -73,6 +75,8 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
     if (isSolved(board) && moves > 0 && !rewarded) {
       setSolved(true);
       setRewarded(true);
+      const reward = calcPuzzleReward(moves);
+      setPuzzleReward(reward);
       // 퍼즐 완성 시 play 보상 지급
       play('toy_puzzle');
     }
@@ -83,6 +87,7 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
     setMoves(0);
     setSolved(false);
     setRewarded(false);
+    setPuzzleReward(null);
   };
 
   const handleExitRequest = () => {
@@ -147,9 +152,17 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
       {solved && (
         <div className="mx-5 mb-4 p-4 bg-mint/20 rounded-2xl border border-mint text-center animate-pop-in">
           <p className="text-lg font-bold text-warm-brown mb-1">🎉 완성!</p>
-          <p className="text-sm text-sub-brown mb-3">
-            {moves}번 만에 풀었어요! EXP +15, 코인 +5 획득!
+          <p className="text-sm text-sub-brown mb-1">
+            {moves}번 만에 풀었어요!
           </p>
+          {puzzleReward && (
+            <div className="flex justify-center gap-3 mb-3">
+              <span className="text-sm font-bold text-yellow-600">🪙 +{puzzleReward.coins}</span>
+              <span className="text-sm font-bold text-purple-600">EXP +{puzzleReward.exp}</span>
+              {moves <= 20 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">🏆 퍼펙트!</span>}
+              {moves > 20 && moves <= 30 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">⭐ 우수!</span>}
+            </div>
+          )}
           <div className="flex gap-2 justify-center">
             <button
               onClick={handleReset}

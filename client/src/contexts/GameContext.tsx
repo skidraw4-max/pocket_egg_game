@@ -27,6 +27,11 @@ import {
   sleepPet,
   todayStr,
   touchPet,
+  processAttendance,
+  AttendanceResult,
+  applyLevelUpReward,
+  applyEvolutionReward,
+  applyCollectionReward,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 
@@ -49,6 +54,8 @@ interface GameContextType {
   isSleeping: boolean;
   setIsSleeping: (v: boolean) => void;
   currentAction: PetAction;
+  attendanceResult: AttendanceResult | null;
+  clearAttendanceResult: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -68,6 +75,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { play: playSound } = useSound();
+  const [attendanceResult, setAttendanceResult] = useState<AttendanceResult | null>(null);
+  const clearAttendanceResult = useCallback(() => setAttendanceResult(null), []);
 
   // 액션 모션 타이머 (일정 시간 후 idle로 복귀)
   const triggerAction = useCallback((action: PetAction, duration = 2500) => {
@@ -99,14 +108,36 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 레벨업 & 진화 체크
+  // 레벨업 & 진화 체크 (레벨업 보상 + 도감 보상 포함)
   const checkProgression = useCallback((newState: GameState): GameState => {
+    const before = newState.pet.level;
     const leveled = checkLevelUp(newState);
-    const evo = checkEvolution(leveled.pet);
+    const after = leveled.pet.level;
+
+    // 레벨업 코인 보상
+    let withRewards = leveled;
+    if (after > before) {
+      for (let lv = before + 1; lv <= after; lv++) {
+        withRewards = applyLevelUpReward(withRewards, lv);
+      }
+    }
+
+    // 진화 체크
+    const evo = checkEvolution(withRewards.pet);
     if (evo) {
       setPendingEvolution(evo);
     }
-    return leveled;
+
+    // 도감 등록 보상 (새 종족이 추가된 경우)
+    const prevCollection = newState.collection;
+    const newCollection = withRewards.collection;
+    for (const species of newCollection) {
+      if (!prevCollection.includes(species)) {
+        withRewards = applyCollectionReward(withRewards, species);
+      }
+    }
+
+    return withRewards;
   }, []);
 
   const feed = useCallback((itemId: string) => {
@@ -173,14 +204,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => checkProgression(claimMissionReward(prev, missionId)));
   }, [checkProgression]);
 
-  // 날짜가 바뀌면 미션 자동 리셋
+  // 날짜가 바뀌면 미션 자동 리셋 + 출석 보상 처리
   useEffect(() => {
     setState(prev => {
-      if (!needsMissionReset(prev)) return prev;
-      return {
-        ...prev,
-        missions: { missions: createDailyMissions(), lastResetDate: todayStr() },
-      };
+      // 미션 리셋
+      const withMissions = needsMissionReset(prev)
+        ? { ...prev, missions: { missions: createDailyMissions(), lastResetDate: todayStr() } }
+        : prev;
+      // 출석 보상
+      const { newState, result } = processAttendance(withMissions);
+      if (result.isNewDay) {
+        setTimeout(() => setAttendanceResult(result), 1500);
+      }
+      return newState;
     });
   }, []);
 
@@ -199,7 +235,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const confirmEvolution = useCallback(() => {
     if (!pendingEvolution) return;
-    setState(prev => evolvePet(prev, pendingEvolution));
+    setState(prev => {
+      const evolved = evolvePet(prev, pendingEvolution);
+      return applyEvolutionReward(evolved, pendingEvolution.newStage);
+    });
     setPendingEvolution(null);
   }, [pendingEvolution]);
 
@@ -223,10 +262,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,
-        isSleeping,
-        setIsSleeping,
-        currentAction,
-      }}
+      isSleeping,
+      setIsSleeping,
+      currentAction,
+      attendanceResult,
+      clearAttendanceResult,
+    }}
     >
       {children}
     </GameContext.Provider>

@@ -20,11 +20,12 @@ import RoomDecor from '@/components/game/RoomDecor';
 import QuestPanel from '@/components/game/QuestPanel';
 import HallOfFame from '@/components/game/HallOfFame';
 import StatusAlert from '@/components/game/StatusAlert';
+import DailyBonus from '@/components/game/DailyBonus';
 
 export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall';
 
 export default function Home() {
-  const { state, pendingEvolution, isSleeping } = useGame();
+  const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult } = useGame();
   const { playBGM } = useSound();
   const [activeMenu, setActiveMenu] = useState<ActiveMenu>('none');
 
@@ -119,6 +120,11 @@ export default function Home() {
 
       {/* 진화 연출 */}
       {pendingEvolution && <EvolutionScreen />}
+
+      {/* 출석 보상 팝업 */}
+      {attendanceResult?.isNewDay && (
+        <DailyBonus result={attendanceResult} onClose={clearAttendanceResult} />
+      )}
     </div>
   );
 }
