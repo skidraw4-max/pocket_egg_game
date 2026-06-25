@@ -210,10 +210,10 @@ function getEvolutionHint(level: number, stage: string, traits?: { power: number
   if (stage === 'mythic') return '✨ 전설 진화 달성! 모든 반려몬 중 최강! 🌟';
 
   if (stage === 'adult') {
-    if (!traits) return 'Lv.50에 전설 진화 가능! ✨';
-    const rem = Math.max(0, 50 - level);
+    if (!traits) return 'Lv.40에 전설 진화 가능! ✨';
+    const rem = Math.max(0, 40 - level);
     const adultBase = rem > 0
-      ? `Lv.50에 전설 진화 가능 (${rem}레벨 남음)`
+      ? `Lv.40에 전설 진화 가능 (${rem}레벨 남음)`
       : '전설 진화 준비 완료! ✨';
     const entries = Object.entries(traits) as [string, number][];
     entries.sort((a, b) => b[1] - a[1]);

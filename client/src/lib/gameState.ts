@@ -301,7 +301,7 @@ export function feedPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 5,
+      exp: state.pet.exp + 8,
       intimacy: clamp(state.pet.intimacy + 1, 0, 100),
     },
     inventory: newInventory,
@@ -325,7 +325,7 @@ export function playWithPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 10,
+      exp: state.pet.exp + 15,
       intimacy: clamp(state.pet.intimacy + 2, 0, 100),
     },
     coins: state.coins + 5,
@@ -343,7 +343,7 @@ export function cleanPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: state.pet.exp + 3,
+      exp: state.pet.exp + 5,
       intimacy: clamp(state.pet.intimacy + 1, 0, 100),
     },
     lastSaveTime: Date.now(),
@@ -360,7 +360,7 @@ export function sleepPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: state.pet.exp + 2,
+      exp: state.pet.exp + 3,
     },
     lastSaveTime: Date.now(),
   };
@@ -466,7 +466,7 @@ export function checkEvolution(pet: PetProfile): EvolutionResult | null {
   }
 
   // 2차 진화: 레전드몬(adult) Lv.50 + 주력 성향 기반 → Mythic 4종
-  if (stage === 'adult' && level >= 50) {
+  if (stage === 'adult' && level >= 40) {
     const dominant = getDominantTrait(traits);
     const mythicEvolutions: Record<string, EvolutionResult> = {
       power:        { newSpecies: '인페르노몬', newStage: 'mythic', statBoosts: { power: 30, intelligence: 10, charm: 10, vitality: 10 } },
@@ -504,7 +504,7 @@ export function checkLevelUp(state: GameState): GameState {
   while (exp >= expToNext) {
     exp -= expToNext;
     level += 1;
-    expToNext = Math.floor(expToNext * 1.2);
+    expToNext = Math.floor(expToNext * 1.1);
     leveled = true;
   }
 

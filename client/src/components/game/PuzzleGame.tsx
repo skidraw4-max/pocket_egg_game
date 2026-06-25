@@ -148,7 +148,7 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         <div className="mx-5 mb-4 p-4 bg-mint/20 rounded-2xl border border-mint text-center animate-pop-in">
           <p className="text-lg font-bold text-warm-brown mb-1">🎉 완성!</p>
           <p className="text-sm text-sub-brown mb-3">
-            {moves}번 만에 풀었어요! EXP +10, 코인 +5 획득!
+            {moves}번 만에 풀었어요! EXP +15, 코인 +5 획득!
           </p>
           <div className="flex gap-2 justify-center">
             <button
