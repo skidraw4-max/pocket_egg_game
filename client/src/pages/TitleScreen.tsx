@@ -8,7 +8,7 @@ interface TitleScreenProps {
   onStart: () => void;
 }
 
-const BASICMON_IMG = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/pwOtVJGEyxaryWDf.png';
+const BASICMON_IMG = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/VMfNTgvHQyyUsWlF.png';
 const TITLE_BG = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/YSlzPwLAfBZIZzDk.png';
 
 export default function TitleScreen({ onStart }: TitleScreenProps) {
