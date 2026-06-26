@@ -4,7 +4,11 @@
  * ★ 전역 싱글턴 구조 ★
  * - AudioContext, BGM GainNode, 볼륨/음소거 상태를 모듈 레벨에서 공유
  * - 어느 컴포넌트에서 setVolume/toggleMute를 호출해도 즉시 BGM에 반영됨
- * - React 상태(useState)는 UI 리렌더링용으로만 사용
+ *
+ * ★ 백그라운드/화면잠금 대응 ★
+ * - Page Visibility API (visibilitychange): 웹/PWA 환경
+ * - Capacitor App 이벤트 (appStateChange): Android 네이티브 앱 환경
+ * - 백그라운드 진입 시 AudioContext suspend → 포그라운드 복귀 시 resume
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -73,6 +77,55 @@ function _applyVolumeToBGM() {
     _bgmGain.gain.value = _isMuted ? 0 : _volume * 0.6;
   }
 }
+
+// ─── 백그라운드/포그라운드 처리 ─────────────────────────────────────────────
+/** 앱이 백그라운드로 이동할 때: AudioContext suspend (소리 완전 정지) */
+function _handleBackground() {
+  if (_audioCtx && _audioCtx.state === 'running') {
+    _audioCtx.suspend().catch(() => {});
+  }
+}
+
+/** 앱이 포그라운드로 복귀할 때: AudioContext resume (소리 재개) */
+function _handleForeground() {
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+  }
+}
+
+// 백그라운드 이벤트 리스너 등록 (모듈 로드 시 1회만 실행)
+let _bgListenersRegistered = false;
+function _registerBackgroundListeners() {
+  if (_bgListenersRegistered) return;
+  _bgListenersRegistered = true;
+
+  // 1) Page Visibility API — 웹/PWA/크롬 탭 전환, 화면 잠금
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      _handleBackground();
+    } else {
+      _handleForeground();
+    }
+  });
+
+  // 2) Capacitor App 이벤트 — Android 네이티브 앱 백그라운드/포그라운드
+  try {
+    // Capacitor가 사용 가능한 환경에서만 등록
+    const { App: CapApp } = require('@capacitor/app');
+    CapApp.addListener('appStateChange', ({ isActive }: { isActive: boolean }) => {
+      if (isActive) {
+        _handleForeground();
+      } else {
+        _handleBackground();
+      }
+    });
+  } catch {
+    // 웹 환경에서는 Capacitor App 플러그인 없음 — 무시
+  }
+}
+
+// 모듈 로드 시 즉시 등록
+_registerBackgroundListeners();
 // ────────────────────────────────────────────────────────────────────────────
 
 function getAudioCtx(): AudioContext {
@@ -149,6 +202,8 @@ export function useSound(): UseSoundReturn {
     (async () => {
       try {
         const ctx = getAudioCtx();
+        // 백그라운드 상태면 재생하지 않음
+        if (ctx.state === 'suspended') return;
         let buf = _bufferCache[key];
         if (!buf) buf = (await loadBuffer(key)) ?? undefined;
         if (!buf) return;
@@ -169,7 +224,7 @@ export function useSound(): UseSoundReturn {
   const playBGM = useCallback((key: BGMKey) => {
     (async () => {
       try {
-        // 이미 같은 BGM이 재생 중이면 스킵
+        // 이미 같은 BGM이 재생 중이면 볼륨만 갱신
         if (_bgmSource && _bgmKey === key) {
           _applyVolumeToBGM();
           return;
