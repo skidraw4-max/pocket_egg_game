@@ -173,26 +173,40 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
       {/* 반려몬 이름 + 레벨 (클릭 시 프로필) */}
       <button
         onClick={onLongPress}
-        className="mb-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 shadow-sm cushion-btn flex items-center gap-1.5 min-h-[44px]"
+        className="mb-3 cushion-btn flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full"
+        style={{
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.8)',
+          border: '1.5px solid rgba(255,255,255,0.7)',
+        }}
         title="프로필 보기"
       >
         <span className="text-base">👤</span>
-        <span className="text-sm font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
+        <span className="text-sm font-extrabold" style={{ fontFamily: 'Nunito, sans-serif', color: '#5B21B6' }}>
           {pet.name}
         </span>
-        <span className="text-xs text-sub-brown">Lv.{pet.level}</span>
-        <span className="text-xs text-sub-brown">♥ {Math.floor(pet.intimacy)}</span>
+        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Lv.{pet.level}</span>
+        <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
       </button>
 
-      {/* 감정 말풍선 */}
+      {/* 감정 말풍선 — 스크린샷 스타일: 크고 둥근 타원형 */}
       {emotionBubble && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 animate-emotion-bubble">
-          <div className="relative bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-1.5 shadow-md border border-white/50">
-            <span className="text-xs font-semibold" style={{ color: emotionColor(emotion) }}>
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 animate-emotion-bubble" style={{ whiteSpace: 'nowrap' }}>
+          <div className="relative px-5 py-3 shadow-lg"
+            style={{
+              background: 'rgba(255,255,255,0.95)',
+              borderRadius: '50% / 40%',
+              border: '2px solid rgba(255,255,255,0.8)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            }}
+          >
+            <span className="text-sm font-bold" style={{ color: emotionColor(emotion), fontFamily: 'Nunito, sans-serif' }}>
               {emotionBubble}
             </span>
             {/* 말풍선 꼬리 */}
-            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white/95 rotate-45 border-r border-b border-white/50" />
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 rotate-45"
+              style={{ boxShadow: '2px 2px 4px rgba(0,0,0,0.08)' }} />
           </div>
         </div>
       )}
@@ -209,7 +223,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         <img
           src={petImage}
           alt={pet.name}
-          className="w-48 h-48 object-contain drop-shadow-lg"
+          className="w-56 h-56 object-contain drop-shadow-2xl"
           style={{ animation: petAnimation }}
           key={`${gameCurrentAction}-${emotion}`}
         />
