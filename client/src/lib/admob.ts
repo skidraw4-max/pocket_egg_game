@@ -45,7 +45,7 @@ export async function initAdMob(): Promise<void> {
         await capacitorAdMob.AdMob.initialize({
           requestTrackingAuthorization: true,
           testingDevices: [],
-          initializeForTesting: !REWARDED_AD_UNIT_ID,
+          initializeForTesting: false,
         });
         adSdkLoaded = true;
         console.log('[AdMob] Capacitor AdMob 초기화 완료');
@@ -127,8 +127,8 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
 
     // 광고 로드
     await AdMob.prepareRewardVideoAd({
-      adId: REWARDED_AD_UNIT_ID || 'ca-app-pub-3940256099942544/5224354917', // 테스트 ID
-      isTesting: !REWARDED_AD_UNIT_ID,
+      adId: REWARDED_AD_UNIT_ID,
+      isTesting: false,
     });
 
     return new Promise((resolve) => {
