@@ -29,6 +29,14 @@ const ACTIONS = [
     activeColor: '#3B82F6',
   },
   {
+    id: 'clean' as const,
+    label: '목욕',
+    icon: '🛁',
+    bgColor: '#34D399',
+    shadowColor: 'rgba(16,185,129,0.4)',
+    activeColor: '#10B981',
+  },
+  {
     id: 'sleep' as const,
     label: '휴식',
     icon: '🌙',
@@ -47,7 +55,7 @@ const ACTIONS = [
 ];
 
 export default function ActionDock({ activeMenu, setActiveMenu }: ActionDockProps) {
-  const { sleep } = useGame();
+  const { sleep, clean } = useGame();
 
   const handleAction = (id: string) => {
     switch (id) {
@@ -56,6 +64,9 @@ export default function ActionDock({ activeMenu, setActiveMenu }: ActionDockProp
         break;
       case 'play':
         setActiveMenu(activeMenu === 'play' ? 'none' : 'play');
+        break;
+      case 'clean':
+        clean();
         break;
       case 'sleep':
         sleep();
