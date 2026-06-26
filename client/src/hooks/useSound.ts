@@ -1,18 +1,10 @@
 /**
  * useSound - 「포켓 에그: 나만의 반려몬」 사운드 매니저
- * Cozy Nursery 디자인: 상황별 귀여운 효과음 재생
  *
- * 지원 효과음:
- * - eating   : 먹이 주기 (냠냠)
- * - playing  : 놀이 (신나게!)
- * - cleaning : 청소/목욕 (뽀득뽀득)
- * - sleeping : 수면 (쿨쿨)
- * - happy    : 행복 감정
- * - hungry   : 배고픔 감정
- * - dirty    : 더러움 감정
- * - tired    : 피곤함 감정
- * - love     : 사랑 감정 (친밀도 MAX)
- * - touch    : 터치/쓰다듬기
+ * ★ 전역 싱글턴 구조 ★
+ * - AudioContext, BGM GainNode, 볼륨/음소거 상태를 모듈 레벨에서 공유
+ * - 어느 컴포넌트에서 setVolume/toggleMute를 호출해도 즉시 BGM에 반영됨
+ * - React 상태(useState)는 UI 리렌더링용으로만 사용
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -45,11 +37,91 @@ const SOUND_URLS: Record<SoundKey, string> = {
   touch:    '/sounds/sfx-touch.wav',
 };
 
-/** 배경음악(BGM) 파일 경로 */
+/** BGM 파일 경로 */
 const BGM_URLS: Record<BGMKey, string> = {
   'main-room': '/sounds/bgm-main-room.wav',
 };
 
+// ─── 전역 싱글턴 상태 ───────────────────────────────────────────────────────
+let _audioCtx: AudioContext | null = null;
+let _bgmSource: AudioBufferSourceNode | null = null;
+let _bgmGain: GainNode | null = null;
+let _bgmBuffer: AudioBuffer | null = null;
+let _bgmKey: BGMKey | null = null;
+const _bufferCache: Partial<Record<SoundKey, AudioBuffer>> = {};
+const _loading: Partial<Record<SoundKey, boolean>> = {};
+
+// 볼륨/음소거 전역 값 (localStorage에서 초기화)
+let _volume: number = (() => {
+  try {
+    const v = parseFloat(localStorage.getItem('pocket-egg-volume') ?? '0.7');
+    return isNaN(v) ? 0.7 : Math.min(1, Math.max(0, v));
+  } catch { return 0.7; }
+})();
+let _isMuted: boolean = (() => {
+  try { return localStorage.getItem('pocket-egg-muted') === 'true'; } catch { return false; }
+})();
+
+// 구독자 목록 (React 컴포넌트 리렌더링 트리거)
+type Listener = () => void;
+const _listeners = new Set<Listener>();
+function _notify() { _listeners.forEach(fn => fn()); }
+
+// BGM GainNode 볼륨 즉시 반영
+function _applyVolumeToBGM() {
+  if (_bgmGain) {
+    _bgmGain.gain.value = _isMuted ? 0 : _volume * 0.6;
+  }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+function getAudioCtx(): AudioContext {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    _audioCtx = new (window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+  }
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume();
+  }
+  return _audioCtx;
+}
+
+async function loadBuffer(key: SoundKey): Promise<AudioBuffer | null> {
+  if (_bufferCache[key]) return _bufferCache[key]!;
+  if (_loading[key]) return null;
+  _loading[key] = true;
+  try {
+    const ctx = getAudioCtx();
+    const resp = await fetch(SOUND_URLS[key]);
+    if (!resp.ok) throw new Error(`Failed to fetch ${key}`);
+    const ab = await resp.arrayBuffer();
+    const buf = await ctx.decodeAudioData(ab);
+    _bufferCache[key] = buf;
+    return buf;
+  } catch (err) {
+    console.warn(`[useSound] Failed to load sound: ${key}`, err);
+    return null;
+  } finally {
+    _loading[key] = false;
+  }
+}
+
+async function loadBGMBuffer(key: BGMKey): Promise<AudioBuffer | null> {
+  if (_bgmBuffer) return _bgmBuffer;
+  try {
+    const ctx = getAudioCtx();
+    const resp = await fetch(BGM_URLS[key]);
+    if (!resp.ok) throw new Error(`Failed to fetch BGM: ${key}`);
+    const ab = await resp.arrayBuffer();
+    _bgmBuffer = await ctx.decodeAudioData(ab);
+    return _bgmBuffer;
+  } catch (err) {
+    console.warn(`[useSound] Failed to load BGM: ${key}`, err);
+    return null;
+  }
+}
+
+// ─── React Hook ─────────────────────────────────────────────────────────────
 interface UseSoundReturn {
   play: (key: SoundKey) => void;
   playBGM: (key: BGMKey) => void;
@@ -61,185 +133,115 @@ interface UseSoundReturn {
 }
 
 export function useSound(): UseSoundReturn {
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('pocket-egg-muted') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const [volume, setVolumeState] = useState<number>(() => {
-    try {
-      const v = parseFloat(localStorage.getItem('pocket-egg-volume') ?? '0.7');
-      return isNaN(v) ? 0.7 : Math.min(1, Math.max(0, v));
-    } catch {
-      return 0.7;
-    }
-  });
+  // 전역 상태를 React state로 미러링 (리렌더링용)
+  const [, forceUpdate] = useState(0);
+  const listenerRef = useRef<Listener>(() => forceUpdate(n => n + 1));
 
-  // 오디오 버퍼 캐시 (Web Audio API)
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const bufferCacheRef = useRef<Partial<Record<SoundKey, AudioBuffer>>>({});
-  const loadingRef = useRef<Partial<Record<SoundKey, boolean>>>({});
-  const bgmSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const bgmGainRef = useRef<GainNode | null>(null);
-  const bgmBufferRef = useRef<AudioBuffer | null>(null);
-
-  // AudioContext 초기화 (사용자 인터랙션 후 생성)
-  const getAudioCtx = useCallback((): AudioContext => {
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    }
-    if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
-    }
-    return audioCtxRef.current;
-  }, []);
-
-  // 효과음 버퍼 로드
-  const loadBuffer = useCallback(async (key: SoundKey): Promise<AudioBuffer | null> => {
-    if (bufferCacheRef.current[key]) return bufferCacheRef.current[key]!;
-    if (loadingRef.current[key]) return null;
-
-    loadingRef.current[key] = true;
-    try {
-      const ctx = getAudioCtx();
-      const resp = await fetch(SOUND_URLS[key]);
-      if (!resp.ok) throw new Error(`Failed to fetch ${key}`);
-      const arrayBuffer = await resp.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      bufferCacheRef.current[key] = audioBuffer;
-      return audioBuffer;
-    } catch (err) {
-      console.warn(`[useSound] Failed to load sound: ${key}`, err);
-      return null;
-    } finally {
-      loadingRef.current[key] = false;
-    }
-  }, [getAudioCtx]);
-
-  // 앱 로드 시 자주 쓰는 효과음 미리 로드
   useEffect(() => {
-    const preload: SoundKey[] = ['eating', 'playing', 'cleaning', 'touch', 'happy'];
-    preload.forEach((key) => {
-      loadBuffer(key).catch(() => {});
-    });
-  }, [loadBuffer]);
-
-  // BGM 버퍼 로드
-  const loadBGMBuffer = useCallback(async (key: BGMKey): Promise<AudioBuffer | null> => {
-    if (bgmBufferRef.current) return bgmBufferRef.current;
-    try {
-      const ctx = getAudioCtx();
-      const resp = await fetch(BGM_URLS[key]);
-      if (!resp.ok) throw new Error(`Failed to fetch BGM: ${key}`);
-      const arrayBuffer = await resp.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      bgmBufferRef.current = audioBuffer;
-      return audioBuffer;
-    } catch (err) {
-      console.warn(`[useSound] Failed to load BGM: ${key}`, err);
-      return null;
-    }
-  }, [getAudioCtx]);
+    const fn = listenerRef.current;
+    _listeners.add(fn);
+    return () => { _listeners.delete(fn); };
+  }, []);
 
   // 효과음 재생
   const play = useCallback((key: SoundKey) => {
-    if (isMuted) return;
-
-    const playBuffer = async () => {
+    if (_isMuted) return;
+    (async () => {
       try {
         const ctx = getAudioCtx();
-        let buffer = bufferCacheRef.current[key];
-        if (!buffer) {
-          buffer = (await loadBuffer(key)) ?? undefined;
-        }
-        if (!buffer) return;
-
+        let buf = _bufferCache[key];
+        if (!buf) buf = (await loadBuffer(key)) ?? undefined;
+        if (!buf) return;
         const source = ctx.createBufferSource();
-        source.buffer = buffer;
-
-        // 볼륨 노드
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = volume;
-
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        source.buffer = buf;
+        const gain = ctx.createGain();
+        gain.gain.value = _volume;
+        source.connect(gain);
+        gain.connect(ctx.destination);
         source.start(0);
       } catch (err) {
-        console.warn(`[useSound] Failed to play sound: ${key}`, err);
+        console.warn(`[useSound] play error: ${key}`, err);
       }
-    };
-
-    playBuffer();
-  }, [isMuted, volume, getAudioCtx, loadBuffer]);
+    })();
+  }, []);
 
   // BGM 재생 (루프)
   const playBGM = useCallback((key: BGMKey) => {
-    const playAsync = async () => {
+    (async () => {
       try {
+        // 이미 같은 BGM이 재생 중이면 스킵
+        if (_bgmSource && _bgmKey === key) {
+          _applyVolumeToBGM();
+          return;
+        }
+
         // 기존 BGM 정지
-        if (bgmSourceRef.current) {
-          bgmSourceRef.current.stop();
-          bgmSourceRef.current = null;
+        if (_bgmSource) {
+          try { _bgmSource.stop(); } catch {}
+          _bgmSource = null;
         }
 
         const ctx = getAudioCtx();
-        let buffer = bgmBufferRef.current;
-        if (!buffer) {
-          buffer = await loadBGMBuffer(key);
+        const buf = await loadBGMBuffer(key);
+        if (!buf) return;
+
+        // GainNode 생성 (없으면)
+        if (!_bgmGain) {
+          _bgmGain = ctx.createGain();
+          _bgmGain.connect(ctx.destination);
         }
-        if (!buffer) return;
+        _applyVolumeToBGM();
 
         const source = ctx.createBufferSource();
-        source.buffer = buffer;
+        source.buffer = buf;
         source.loop = true;
-
-        // 볼륨 노드 생성 또는 재사용
-        if (!bgmGainRef.current) {
-          bgmGainRef.current = ctx.createGain();
-          bgmGainRef.current.connect(ctx.destination);
-        }
-        bgmGainRef.current.gain.value = isMuted ? 0 : volume * 0.6; // BGM은 효과음보다 낮게
-
-        source.connect(bgmGainRef.current);
+        source.connect(_bgmGain);
         source.start(0);
-        bgmSourceRef.current = source;
+        _bgmSource = source;
+        _bgmKey = key;
       } catch (err) {
-        console.warn(`[useSound] Failed to play BGM: ${key}`, err);
+        console.warn(`[useSound] playBGM error: ${key}`, err);
       }
-    };
-    playAsync();
-  }, [isMuted, volume, getAudioCtx, loadBGMBuffer]);
+    })();
+  }, []);
 
   // BGM 정지
   const stopBGM = useCallback(() => {
-    if (bgmSourceRef.current) {
-      bgmSourceRef.current.stop();
-      bgmSourceRef.current = null;
+    if (_bgmSource) {
+      try { _bgmSource.stop(); } catch {}
+      _bgmSource = null;
+      _bgmKey = null;
     }
   }, []);
 
-  // 볼륨 변경 시 BGM 볼륨도 업데이트
-  useEffect(() => {
-    if (bgmGainRef.current) {
-      bgmGainRef.current.gain.value = isMuted ? 0 : volume * 0.6;
-    }
-  }, [volume, isMuted]);
-
+  // 음소거 토글
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      try { localStorage.setItem('pocket-egg-muted', String(next)); } catch {}
-      return next;
-    });
+    _isMuted = !_isMuted;
+    try { localStorage.setItem('pocket-egg-muted', String(_isMuted)); } catch {}
+    _applyVolumeToBGM();
+    _notify();
   }, []);
 
+  // 볼륨 설정
   const setVolume = useCallback((v: number) => {
-    const clamped = Math.min(1, Math.max(0, v));
-    setVolumeState(clamped);
-    try { localStorage.setItem('pocket-egg-volume', String(clamped)); } catch {}
+    _volume = Math.min(1, Math.max(0, v));
+    // 볼륨을 올리면 자동으로 음소거 해제
+    if (_volume > 0 && _isMuted) {
+      _isMuted = false;
+      try { localStorage.setItem('pocket-egg-muted', 'false'); } catch {}
+    }
+    try { localStorage.setItem('pocket-egg-volume', String(_volume)); } catch {}
+    _applyVolumeToBGM();
+    _notify();
   }, []);
 
-  return { play, playBGM, stopBGM, isMuted, toggleMute, volume, setVolume };
+  return {
+    play,
+    playBGM,
+    stopBGM,
+    isMuted: _isMuted,
+    toggleMute,
+    volume: _volume,
+    setVolume,
+  };
 }

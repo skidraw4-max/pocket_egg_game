@@ -103,31 +103,62 @@ export default function TopBar({
 
           {/* 볼륨 슬라이더 팝업 */}
           {showVolumeSlider && (
-            <div className="absolute top-11 right-0 bg-white/95 backdrop-blur-md rounded-2xl px-3 py-3 shadow-xl whitespace-nowrap z-50"
-              style={{ border: '1px solid rgba(139,92,246,0.2)' }}>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={isMuted ? 0 : Math.round(volume * 100)}
-                  onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
-                  className="w-24 h-2 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #7C3AED 0%, #7C3AED ${isMuted ? 0 : volume * 100}%, #E5E7EB ${isMuted ? 0 : volume * 100}%, #E5E7EB 100%)`
-                  }}
-                />
-                <span className="text-xs font-semibold text-purple-700 min-w-6 text-right">
-                  {isMuted ? '0' : Math.round(volume * 100)}
-                </span>
-              </div>
-              <button
-                onClick={toggleMute}
-                className="mt-2 w-full text-xs font-semibold text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg px-2 py-1 transition-colors"
+            <>
+              {/* 외부 클릭 시 닫기 */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowVolumeSlider(false)}
+              />
+              <div
+                className="absolute top-11 right-0 rounded-2xl px-4 py-4 shadow-2xl whitespace-nowrap z-50"
+                style={{
+                  background: 'rgba(255,255,255,0.97)',
+                  border: '1.5px solid rgba(139,92,246,0.25)',
+                  minWidth: 180,
+                }}
+                onClick={e => e.stopPropagation()}
               >
-                {isMuted ? '음소거 해제' : '음소거'}
-              </button>
-            </div>
+                {/* 볼륨 레이블 */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-purple-700">볼륨</span>
+                  <span className="text-xs font-bold text-purple-700">
+                    {isMuted ? '🔇 음소거' : `${Math.round(volume * 100)}%`}
+                  </span>
+                </div>
+
+                {/* 슬라이더 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{isMuted ? '🔇' : volume === 0 ? '🔕' : volume > 0.5 ? '🔊' : '🔉'}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={isMuted ? 0 : Math.round(volume * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) / 100;
+                      setVolume(val);
+                    }}
+                    className="flex-1 h-3 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, #7C3AED 0%, #7C3AED ${isMuted ? 0 : volume * 100}%, #E5E7EB ${isMuted ? 0 : volume * 100}%, #E5E7EB 100%)`,
+                      accentColor: '#7C3AED',
+                    }}
+                  />
+                </div>
+
+                {/* 음소거 토글 버튼 */}
+                <button
+                  onClick={() => { toggleMute(); }}
+                  className="mt-3 w-full text-xs font-bold rounded-xl px-3 py-2 transition-all active:scale-95"
+                  style={{
+                    background: isMuted ? '#7C3AED' : '#EDE9FE',
+                    color: isMuted ? '#FFFFFF' : '#7C3AED',
+                  }}
+                >
+                  {isMuted ? '🔊 음소거 해제' : '🔇 음소거'}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>
