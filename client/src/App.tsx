@@ -11,10 +11,10 @@ import { useState } from "react";
 
 /** 타이틀 → 게임 화면 전환을 관리하는 래퍼 */
 function GameShell() {
-  // 최초 실행 여부: localStorage에 'pocket_egg_started' 키가 없으면 타이틀 표시
+  // 앱 실행(세션) 단위로 타이틀 표시: sessionStorage를 사용하여 앱 종료 후 재시작 시 항상 타이틀 화면 표시
   const [gameStarted, setGameStarted] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('pocket_egg_started') === 'true';
+      return sessionStorage.getItem('pocket_egg_session_started') === 'true';
     } catch {
       return false;
     }
@@ -22,7 +22,7 @@ function GameShell() {
 
   const handleStart = () => {
     try {
-      localStorage.setItem('pocket_egg_started', 'true');
+      sessionStorage.setItem('pocket_egg_session_started', 'true');
     } catch { /* ignore */ }
     setGameStarted(true);
   };

@@ -1,6 +1,7 @@
 /**
  * TopBar - 로고 + 재화 표시 + 도감 버튼 + 사운드 제어
  * Cozy Nursery: 부드러운 반투명 배경, 둥근 pill 형태
+ * 2줄 레이아웃: 1행 — 로고+재화+볼륨 / 2행 — 메뉴 버튼들
  */
 import { useSound } from '@/hooks/useSound';
 import { useState } from 'react';
@@ -21,22 +22,92 @@ interface TopBarProps {
 export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, onHallClick, onSocialClick, onNicknameClick, nickname, unclaimedMissions = 0, syncing = false }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+
   return (
-    <div className="flex items-center justify-between px-4 pb-1" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-      {/* 로고 + 도감 */}
-      <div className="flex items-center gap-2">
-        <img
-          src="https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-logo-TSp2CWP5nehvpiMprvz3VZ.webp"
-          alt="포켓 에그"
-          className="w-9 h-9 rounded-full shadow-md"
-        />
-        <span className="font-bold text-warm-brown text-sm" style={{ fontFamily: 'Nunito, sans-serif' }}>
-          포켓 에그
-        </span>
+    <div
+      className="flex flex-col px-4 pb-1 gap-1"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
+      {/* ── 1행: 로고 + 재화 + 볼륨 ── */}
+      <div className="flex items-center justify-between">
+        {/* 로고 */}
+        <div className="flex items-center gap-2">
+          <img
+            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-logo-TSp2CWP5nehvpiMprvz3VZ.webp"
+            alt="포켓 에그"
+            className="w-8 h-8 rounded-full shadow-md"
+          />
+          <span className="font-bold text-warm-brown text-sm" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            포켓 에그
+          </span>
+        </div>
+
+        {/* 재화 + 볼륨 */}
+        <div className="flex items-center gap-2">
+          {/* 재화 */}
+          <div className="flex items-center gap-1 bg-white/70 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
+            <span className="text-sm">🪙</span>
+            <span className="text-xs font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              {coins.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 bg-white/70 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm">
+            <span className="text-sm">💎</span>
+            <span className="text-xs font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
+              {gems}
+            </span>
+          </div>
+
+          {/* 볼륨 제어 */}
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+              className="bg-white/70 backdrop-blur-sm rounded-full p-1.5 shadow-sm hover:bg-white/90 transition-all"
+              title={isMuted ? '음소거 해제' : '음소거'}
+            >
+              <span className="text-base leading-none">{isMuted ? '🔇' : volume > 0.5 ? '🔊' : '🔉'}</span>
+            </button>
+
+            {/* 볼륨 슬라이더 (토글) */}
+            {showVolumeSlider && (
+              <div className="absolute top-10 right-0 bg-white/90 backdrop-blur-md rounded-2xl px-3 py-3 shadow-lg whitespace-nowrap z-50">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={isMuted ? 0 : Math.round(volume * 100)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) / 100;
+                      setVolume(val);
+                    }}
+                    className="w-24 h-2 bg-peach/30 rounded-full appearance-none cursor-pointer accent-peach"
+                    style={{
+                      background: `linear-gradient(to right, oklch(0.85 0.15 30) 0%, oklch(0.85 0.15 30) ${isMuted ? 0 : volume * 100}%, oklch(0.95 0.05 30) ${isMuted ? 0 : volume * 100}%, oklch(0.95 0.05 30) 100%)`
+                    }}
+                  />
+                  <span className="text-xs font-semibold text-warm-brown min-w-6 text-right">
+                    {isMuted ? '0' : Math.round(volume * 100)}
+                  </span>
+                </div>
+                <button
+                  onClick={toggleMute}
+                  className="mt-2 w-full text-xs font-semibold text-warm-brown bg-peach/20 hover:bg-peach/30 rounded-lg px-2 py-1 transition-colors"
+                >
+                  {isMuted ? '음소거 해제' : '음소거'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2행: 메뉴 버튼들 ── */}
+      <div className="flex items-center gap-1.5 flex-wrap">
         {onCollectionClick && (
           <button
             onClick={onCollectionClick}
-            className="ml-2 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm text-xs font-semibold text-sub-brown flex items-center gap-1"
           >
             📖 도감
           </button>
@@ -44,7 +115,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
         {onQuestClick && (
           <button
             onClick={onQuestClick}
-            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="relative bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm text-xs font-semibold text-sub-brown flex items-center gap-1"
           >
             📋 미션
             {unclaimedMissions > 0 && (
@@ -57,7 +128,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
         {onHallClick && (
           <button
             onClick={onHallClick}
-            className="ml-1 bg-gradient-to-r from-yellow-300/80 to-orange-300/80 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-warm-brown min-h-[44px] min-w-[44px] flex items-center justify-center animate-pulse"
+            className="bg-gradient-to-r from-yellow-300/80 to-orange-300/80 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm text-xs font-semibold text-warm-brown flex items-center gap-1 animate-pulse"
           >
             🏆 전당
           </button>
@@ -65,7 +136,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
         {onSocialClick && (
           <button
             onClick={onSocialClick}
-            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="relative bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm text-xs font-semibold text-sub-brown flex items-center gap-1"
           >
             🌐 소셜
             {syncing && (
@@ -76,7 +147,7 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
         {onNicknameClick && (
           <button
             onClick={onNicknameClick}
-            className="relative ml-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-2 shadow-sm text-xs font-semibold text-sub-brown min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="relative bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-sm text-xs font-semibold text-sub-brown flex items-center gap-1"
             title="닉네임 설정"
           >
             {nickname ? (
@@ -86,66 +157,6 @@ export default function TopBar({ coins, gems, onCollectionClick, onQuestClick, o
             )}
           </button>
         )}
-      </div>
-
-      {/* 사운드 제어 + 재화 */}
-      <div className="flex items-center gap-3">
-        {/* 볼륨 제어 */}
-        <div className="relative flex items-center gap-1">
-          <button
-            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-            className="bg-white/70 backdrop-blur-sm rounded-full p-2 shadow-sm hover:bg-white/90 transition-all"
-            title={isMuted ? '음소거 해제' : '음소거'}
-          >
-            <span className="text-lg">{isMuted ? '🔇' : volume > 0.5 ? '🔊' : '🔉'}</span>
-          </button>
-
-          {/* 볼륨 슬라이더 (토글) */}
-          {showVolumeSlider && (
-            <div className="absolute top-12 right-0 bg-white/90 backdrop-blur-md rounded-2xl px-3 py-3 shadow-lg whitespace-nowrap z-50">
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={isMuted ? 0 : Math.round(volume * 100)}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) / 100;
-                    setVolume(val);
-                  }}
-                  className="w-24 h-2 bg-peach/30 rounded-full appearance-none cursor-pointer accent-peach"
-                  style={{
-                    background: `linear-gradient(to right, oklch(0.85 0.15 30) 0%, oklch(0.85 0.15 30) ${isMuted ? 0 : volume * 100}%, oklch(0.95 0.05 30) ${isMuted ? 0 : volume * 100}%, oklch(0.95 0.05 30) 100%)`
-                  }}
-                />
-                <span className="text-xs font-semibold text-warm-brown min-w-6 text-right">
-                  {isMuted ? '0' : Math.round(volume * 100)}
-                </span>
-              </div>
-              <button
-                onClick={toggleMute}
-                className="mt-2 w-full text-xs font-semibold text-warm-brown bg-peach/20 hover:bg-peach/30 rounded-lg px-2 py-1 transition-colors"
-              >
-                {isMuted ? '음소거 해제' : '음소거'}
-              </button>
-            </div>
-          )}
-        </div>
-        {/* 재화 표시 */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-            <span className="text-base">🪙</span>
-            <span className="text-sm font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
-              {coins.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 bg-white/70 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-            <span className="text-base">💎</span>
-            <span className="text-sm font-bold text-warm-brown" style={{ fontFamily: 'Nunito, sans-serif' }}>
-              {gems}
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   );
