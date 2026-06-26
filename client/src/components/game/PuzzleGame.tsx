@@ -2,6 +2,7 @@
  * PuzzleGame - 별 퍼즐 미니게임
  * Cozy Nursery: 3×3 슬라이딩 퍼즐, 완성 시 보상 지급
  * 방식 2: 게임 내 ❓ 도움말 버튼으로 튜토리얼 오버레이 표시
+ * 개선: 방안 A(목표 미리보기) + 방안 C(타일 숫자 표시)
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/contexts/GameContext';
@@ -38,16 +39,61 @@ function getNeighbors(index: number): number[] {
 
 function shuffle(board: Board): Board {
   let b = [...board];
-  // 300번 랜덤 이동으로 섞기 (항상 풀 수 있는 상태 보장)
   for (let i = 0; i < 300; i++) {
     const emptyIdx = b.indexOf(0);
     const neighbors = getNeighbors(emptyIdx);
     const target = neighbors[Math.floor(Math.random() * neighbors.length)];
     [b[emptyIdx], b[target]] = [b[target], b[emptyIdx]];
   }
-  // 이미 풀린 상태면 다시 섞기
   if (isSolved(b)) return shuffle(b);
   return b;
+}
+
+/** 방안 A: 소형 목표 미리보기 컴포넌트 */
+function GoalPreview() {
+  return (
+    <div className="mx-5 mb-3">
+      <div className="bg-white/80 rounded-2xl border border-amber-200 shadow-sm px-3 py-2">
+        <div className="flex items-center gap-3">
+          {/* 라벨 */}
+          <div className="flex-shrink-0 text-center">
+            <div className="text-[10px] font-bold text-amber-600 leading-tight">완성</div>
+            <div className="text-[10px] font-bold text-amber-600 leading-tight">목표</div>
+          </div>
+          {/* 구분선 */}
+          <div className="w-px h-10 bg-amber-200 flex-shrink-0" />
+          {/* 3×3 미니 그리드 */}
+          <div className="grid grid-cols-3 gap-0.5 flex-shrink-0">
+            {GOAL.map((tile, idx) => (
+              <div
+                key={idx}
+                className={`w-8 h-8 rounded-md flex flex-col items-center justify-center
+                  ${tile === 0
+                    ? 'bg-amber-100/60 border border-dashed border-amber-300'
+                    : 'bg-amber-50 border border-amber-200'
+                  }`}
+              >
+                {tile !== 0 && (
+                  <>
+                    <span className="text-sm leading-none">{TILE_EMOJIS[tile]}</span>
+                    <span className="text-[8px] font-bold text-amber-500 leading-none mt-0.5">{tile}</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* 설명 */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-sub-brown leading-relaxed">
+              이 순서대로<br />
+              맞추면 완성!<br />
+              <span className="text-amber-500 font-semibold">빈칸 → 우하단</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PuzzleGame({ onClose }: PuzzleGameProps) {
@@ -58,7 +104,7 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
   const [rewarded, setRewarded] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
   const [puzzleReward, setPuzzleReward] = useState<{ coins: number; exp: number } | null>(null);
-  const [showHelp, setShowHelp] = useState(false); // ❓ 도움말 오버레이
+  const [showHelp, setShowHelp] = useState(false);
 
   const tutorial = TUTORIALS['toy_puzzle'];
 
@@ -82,7 +128,6 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
       setRewarded(true);
       const reward = calcPuzzleReward(moves);
       setPuzzleReward(reward);
-      // 퍼즐 완성 시 play 보상 지급
       play('toy_puzzle');
     }
   }, [board, moves, rewarded, play]);
@@ -131,6 +176,9 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         </div>
       </div>
 
+      {/* 방안 A: 목표 배열 미리보기 */}
+      <GoalPreview />
+
       {/* 안내 문구 */}
       <p className="text-center text-xs text-sub-brown mb-3">
         타일을 눌러 빈칸으로 이동시켜 완성하세요!
@@ -140,26 +188,71 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
       <div className="flex-1 flex items-center justify-center px-6">
         <div className="w-full max-w-[320px]">
           <div className="grid grid-cols-3 gap-2">
-            {board.map((tile, index) => (
-              <button
-                key={index}
-                onClick={() => handleTileClick(index)}
-                disabled={tile === 0 || solved}
-                className={`
-                  aspect-square rounded-2xl flex items-center justify-center text-4xl
-                  transition-all duration-150 select-none
-                  ${tile === 0
-                    ? 'bg-transparent cursor-default'
-                    : solved
-                      ? 'bg-mint/30 border-2 border-mint scale-100 cursor-default shadow'
-                      : 'bg-white shadow-md border border-border cushion-btn active:scale-95'
-                  }
-                `}
-              >
-                {tile !== 0 && TILE_EMOJIS[tile]}
-              </button>
-            ))}
+            {board.map((tile, index) => {
+              // 방안 C: 현재 위치가 목표 위치와 일치하는지 확인
+              const isCorrectPos = tile !== 0 && GOAL[index] === tile;
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleTileClick(index)}
+                  disabled={tile === 0 || solved}
+                  className={`
+                    aspect-square rounded-2xl flex flex-col items-center justify-center
+                    transition-all duration-150 select-none relative
+                    ${tile === 0
+                      ? 'bg-amber-100/40 border-2 border-dashed border-amber-200 cursor-default'
+                      : solved
+                        ? 'bg-mint/30 border-2 border-mint scale-100 cursor-default shadow'
+                        : isCorrectPos
+                          ? 'bg-amber-50 border-2 border-amber-300 shadow-md cushion-btn active:scale-95'
+                          : 'bg-white shadow-md border border-border cushion-btn active:scale-95'
+                    }
+                  `}
+                >
+                  {tile !== 0 && (
+                    <>
+                      {/* 방안 C: 이모지 */}
+                      <span className="text-3xl leading-none">{TILE_EMOJIS[tile]}</span>
+                      {/* 방안 C: 숫자 배지 */}
+                      <span className={`text-[10px] font-bold leading-none mt-0.5
+                        ${solved ? 'text-mint' : isCorrectPos ? 'text-amber-500' : 'text-gray-400'}
+                      `}>
+                        {tile}
+                      </span>
+                      {/* 방안 C: 정위치 체크 표시 */}
+                      {isCorrectPos && !solved && (
+                        <span className="absolute top-1 right-1 text-[8px] text-amber-400 font-bold">✓</span>
+                      )}
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* 방안 C: 정위치 타일 개수 진행 표시 */}
+          {!solved && (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <div className="flex gap-1">
+                {Array.from({ length: 8 }, (_, i) => {
+                  const tileNum = i + 1;
+                  const currentPos = board.indexOf(tileNum);
+                  const correct = GOAL[currentPos] === tileNum;
+                  return (
+                    <div
+                      key={i}
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300
+                        ${correct ? 'bg-amber-400 scale-110' : 'bg-gray-200'}
+                      `}
+                    />
+                  );
+                })}
+              </div>
+              <span className="text-[10px] text-sub-brown">
+                {board.filter((tile, idx) => tile !== 0 && GOAL[idx] === tile).length}/8 정위치
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
