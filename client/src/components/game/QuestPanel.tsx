@@ -121,7 +121,13 @@ function MissionCard({ mission, onClaim, onClaimAd }: MissionCardProps) {
       const result = await showRewardedAd();
       if (result.rewarded) {
         onClaimAd();
-        setAdToast('💎 젬 +1 획득! 광고 시청 감사해요 🎉');
+        setAdToast('💎 젠 +1 획득! 광고 시청 감사해요 🎉');
+      } else if (result.reason === 'web_unsupported') {
+        setAdToast('📱 광고는 Android 앱에서만 이용할 수 있어요.');
+      } else if (result.reason === 'not_loaded') {
+        setAdToast('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      } else if (result.reason === 'user_closed') {
+        setAdToast('광고를 끝까지 시청해야 보상을 받을 수 있어요.');
       } else {
         setAdToast('광고를 끝까지 시청해야 보상을 받을 수 있어요.');
       }
@@ -129,7 +135,7 @@ function MissionCard({ mission, onClaim, onClaimAd }: MissionCardProps) {
       setAdToast('광고를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setAdLoading(false);
-      setTimeout(() => setAdToast(null), 3000);
+      setTimeout(() => setAdToast(null), 4000);
     }
   }, [adLoading, onClaimAd]);
 

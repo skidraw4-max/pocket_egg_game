@@ -52,6 +52,7 @@ let _bgmSource: AudioBufferSourceNode | null = null;
 let _bgmGain: GainNode | null = null;
 let _bgmBuffer: AudioBuffer | null = null;
 let _bgmKey: BGMKey | null = null;
+let _bgmPlaying = false; // 실제 재생 중 여부 (source.onended 로 관리)
 const _bufferCache: Partial<Record<SoundKey, AudioBuffer>> = {};
 const _loading: Partial<Record<SoundKey, boolean>> = {};
 
@@ -220,12 +221,12 @@ export function useSound(): UseSoundReturn {
     })();
   }, []);
 
-  // BGM 재생 (루프)
+  // BGM 재생 (루프) — 이미 같은 BGM이 재생 중이면 중복 시작 방지
   const playBGM = useCallback((key: BGMKey) => {
     (async () => {
       try {
-        // 이미 같은 BGM이 재생 중이면 볼륨만 갱신
-        if (_bgmSource && _bgmKey === key) {
+        // 이미 같은 BGM이 재생 중이면 볼륨만 갱신하고 종료
+        if (_bgmPlaying && _bgmKey === key) {
           _applyVolumeToBGM();
           return;
         }
@@ -235,10 +236,14 @@ export function useSound(): UseSoundReturn {
           try { _bgmSource.stop(); } catch {}
           _bgmSource = null;
         }
+        _bgmPlaying = false;
 
         const ctx = getAudioCtx();
         const buf = await loadBGMBuffer(key);
         if (!buf) return;
+
+        // 비동기 로드 중 다른 BGM이 시작됐으면 중단
+        if (_bgmPlaying && _bgmKey === key) return;
 
         // GainNode 생성 (없으면)
         if (!_bgmGain) {
@@ -252,8 +257,17 @@ export function useSound(): UseSoundReturn {
         source.loop = true;
         source.connect(_bgmGain);
         source.start(0);
+        source.onended = () => {
+          // loop=true 이므로 정상 상황에서는 호출되지 않음
+          // stop() 호출 시에만 발생 → 상태 초기화
+          if (_bgmSource === source) {
+            _bgmSource = null;
+            _bgmPlaying = false;
+          }
+        };
         _bgmSource = source;
         _bgmKey = key;
+        _bgmPlaying = true;
       } catch (err) {
         console.warn(`[useSound] playBGM error: ${key}`, err);
       }
@@ -266,6 +280,7 @@ export function useSound(): UseSoundReturn {
       try { _bgmSource.stop(); } catch {}
       _bgmSource = null;
       _bgmKey = null;
+      _bgmPlaying = false;
     }
   }, []);
 

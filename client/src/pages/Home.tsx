@@ -54,21 +54,15 @@ export default function Home() {
     return cleanup;
   }, [scheduleBackgroundCheck, state]);
 
-  // 컴포넌트 마운트 시 BGM 시작
+  // 컴포넌트 마운트 시 BGM 시작 (단 1회만)
   useEffect(() => {
     playBGM('main-room');
-  }, [playBGM]);
-
-  // 메뉴 닫힐 때 BGM 계속 재생
-  useEffect(() => {
-    if (activeMenu === 'none') {
-      playBGM('main-room');
-    }
-  }, [activeMenu, playBGM]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="relative w-full h-full overflow-hidden flex flex-col" onClick={() => {
-      // 사용자 인터랙션 후 BGM 재생 (자동 재생 정책 우회)
+      // 사용자 인터랙션 후 AudioContext resume (자동 재생 정송 우회)
+      // BGM이 이미 재생 중이면 싱글턴에서 중복 방지함
       playBGM('main-room');
     }}>
       {/* 배경 이미지 — 구매한 wallpaper ID에 따라 동적 변경 */}
