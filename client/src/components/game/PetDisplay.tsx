@@ -94,7 +94,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
   useEffect(() => {
     setCurrentActionLocal(gameCurrentAction);
   }, [gameCurrentAction]);
-  const { play: playSound } = useSound();
+  const { play: playSound, playVoice } = useSound();
   const [isTouched, setIsTouched] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const prevEmotionRef = useRef<Emotion>('idle');
@@ -115,15 +115,15 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
     if (gameCurrentAction !== 'idle' || isSleeping) return; // 액션 중이거나 수면 중이면 감정음 재생 안 함
     if (emotion === prevEmotionRef.current) return; // 감정이 같으면 재생 안 함
 
-    // 감정 변화에 따른 효과음 재생
-    if (emotion === 'love') playSound('love');
-    else if (emotion === 'happy') playSound('happy');
-    else if (emotion === 'hungry') playSound('hungry');
-    else if (emotion === 'dirty') playSound('dirty');
-    else if (emotion === 'tired') playSound('tired');
+    // 감정 변화에 따른 효과음 + 음성 재생
+    if (emotion === 'love') { playSound('love'); playVoice('love'); }
+    else if (emotion === 'happy') { playSound('happy'); playVoice('happy'); }
+    else if (emotion === 'hungry') { playSound('hungry'); playVoice('hungry'); }
+    else if (emotion === 'dirty') { playSound('dirty'); playVoice('dirty'); }
+    else if (emotion === 'tired') { playSound('tired'); playVoice('tired'); }
 
     prevEmotionRef.current = emotion;
-  }, [emotion, gameCurrentAction, isSleeping, playSound]);
+  }, [emotion, gameCurrentAction, isSleeping, playSound, playVoice]);
 
   const handleTouch = () => {
     if (isSleeping || gameCurrentAction !== 'idle') return;

@@ -234,6 +234,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setIsSleeping(true);
     setCurrentAction('sleeping');
     playSound('sleeping');
+    playVoice('sleeping');
     setState(prev => {
       const next = sleepPet(prev);
       return advanceMission(checkProgression(next), 'sleep');
@@ -246,8 +247,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const touch = useCallback(() => {
     playSound('touch');
+    playVoice('touch');
     setState(prev => touchPet(prev));
-  }, [playSound]);
+  }, [playSound, playVoice]);
 
   const purchase = useCallback((item: ShopItemDef): PurchaseResult => {
     // purchaseItem을 setState 외부에서 현재 state를 직접 참조하여 실행

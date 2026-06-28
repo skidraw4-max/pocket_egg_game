@@ -25,6 +25,20 @@ export type SoundKey =
   | 'love'
   | 'touch';
 
+export type VoiceKey =
+  | 'eating'
+  | 'playing'
+  | 'cleaning'
+  | 'sleeping'
+  | 'touch'
+  | 'happy'
+  | 'hungry'
+  | 'dirty'
+  | 'tired'
+  | 'love'
+  | 'levelup'
+  | 'evolution';
+
 export type BGMKey = 'main-room';
 
 /** 효과음 파일 경로 */
@@ -41,6 +55,22 @@ const SOUND_URLS: Record<SoundKey, string> = {
   touch:    '/sounds/sfx-touch.wav',
 };
 
+/** 한국어 음성 파일 경로 (상황별 3가지, 랜덤 재생) */
+const VOICE_URLS: Record<VoiceKey, string[]> = {
+  eating:    ['/sounds/voice-eating-1.wav',    '/sounds/voice-eating-2.wav',    '/sounds/voice-eating-3.wav'],
+  playing:   ['/sounds/voice-playing-1.wav',   '/sounds/voice-playing-2.wav',   '/sounds/voice-playing-3.wav'],
+  cleaning:  ['/sounds/voice-cleaning-1.wav',  '/sounds/voice-cleaning-2.wav',  '/sounds/voice-cleaning-3.wav'],
+  sleeping:  ['/sounds/voice-sleeping-1.wav',  '/sounds/voice-sleeping-2.wav',  '/sounds/voice-sleeping-3.wav'],
+  touch:     ['/sounds/voice-touch-1.wav',     '/sounds/voice-touch-2.wav',     '/sounds/voice-touch-3.wav'],
+  happy:     ['/sounds/voice-happy-1.wav',     '/sounds/voice-happy-2.wav',     '/sounds/voice-happy-3.wav'],
+  hungry:    ['/sounds/voice-hungry-1.wav',    '/sounds/voice-hungry-2.wav',    '/sounds/voice-hungry-3.wav'],
+  dirty:     ['/sounds/voice-dirty-1.wav',     '/sounds/voice-dirty-2.wav',     '/sounds/voice-dirty-3.wav'],
+  tired:     ['/sounds/voice-tired-1.wav',     '/sounds/voice-tired-2.wav',     '/sounds/voice-tired-3.wav'],
+  love:      ['/sounds/voice-love-1.wav',      '/sounds/voice-love-2.wav',      '/sounds/voice-love-3.wav'],
+  levelup:   ['/sounds/voice-levelup-1.wav',   '/sounds/voice-levelup-2.wav',   '/sounds/voice-levelup-3.wav'],
+  evolution: ['/sounds/voice-evolution-1.wav', '/sounds/voice-evolution-2.wav', '/sounds/voice-evolution-3.wav'],
+};
+
 /** BGM 파일 경로 */
 const BGM_URLS: Record<BGMKey, string> = {
   'main-room': '/sounds/bgm-main-room.wav',
@@ -55,6 +85,10 @@ let _bgmKey: BGMKey | null = null;
 let _bgmPlaying = false; // 실제 재생 중 여부 (source.onended 로 관리)
 const _bufferCache: Partial<Record<SoundKey, AudioBuffer>> = {};
 const _loading: Partial<Record<SoundKey, boolean>> = {};
+
+// 음성 버퍼 캐시 (URL 기준)
+const _voiceCache: Map<string, AudioBuffer> = new Map();
+const _voiceLoading: Map<string, boolean> = new Map();
 
 // 볼륨/음소거 전역 값 (localStorage에서 초기화)
 let _volume: number = (() => {
@@ -162,6 +196,26 @@ async function loadBuffer(key: SoundKey): Promise<AudioBuffer | null> {
   }
 }
 
+async function loadVoiceBuffer(url: string): Promise<AudioBuffer | null> {
+  if (_voiceCache.has(url)) return _voiceCache.get(url)!;
+  if (_voiceLoading.get(url)) return null;
+  _voiceLoading.set(url, true);
+  try {
+    const ctx = getAudioCtx();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to fetch voice: ${url}`);
+    const ab = await resp.arrayBuffer();
+    const buf = await ctx.decodeAudioData(ab);
+    _voiceCache.set(url, buf);
+    return buf;
+  } catch (err) {
+    console.warn(`[useSound] Failed to load voice: ${url}`, err);
+    return null;
+  } finally {
+    _voiceLoading.set(url, false);
+  }
+}
+
 async function loadBGMBuffer(key: BGMKey): Promise<AudioBuffer | null> {
   if (_bgmBuffer) return _bgmBuffer;
   try {
@@ -180,6 +234,7 @@ async function loadBGMBuffer(key: BGMKey): Promise<AudioBuffer | null> {
 // ─── React Hook ─────────────────────────────────────────────────────────────
 interface UseSoundReturn {
   play: (key: SoundKey) => void;
+  playVoice: (key: VoiceKey) => void;
   playBGM: (key: BGMKey) => void;
   stopBGM: () => void;
   isMuted: boolean;
@@ -219,6 +274,35 @@ export function useSound(): UseSoundReturn {
         source.start(0);
       } catch (err) {
         console.warn(`[useSound] play error: ${key}`, err);
+      }
+    })();
+  }, []);
+
+  // 한국어 음성 재생 (상황별 랜덤 1개 선택, SFX 효과음 직후 약간 딜레이)
+  const playVoice = useCallback((key: VoiceKey) => {
+    if (_isMuted) return;
+    (async () => {
+      try {
+        const ctx = getAudioCtx();
+        if (ctx.state === 'suspended') return;
+        const urls = VOICE_URLS[key];
+        const url = urls[Math.floor(Math.random() * urls.length)];
+        // 음성 버퍼 미리 로드 시도
+        let buf = _voiceCache.get(url);
+        if (!buf) buf = (await loadVoiceBuffer(url)) ?? undefined;
+        if (!buf) return;
+        // SFX 효과음과 겹치지 않도록 300ms 딜레이
+        await new Promise(r => setTimeout(r, 300));
+        if (ctx.state === 'suspended') return;
+        const source = ctx.createBufferSource();
+        source.buffer = buf;
+        const gain = ctx.createGain();
+        gain.gain.value = _volume * 0.95; // 음성은 약간 크게
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        source.start(0);
+      } catch (err) {
+        console.warn(`[useSound] playVoice error: ${key}`, err);
       }
     })();
   }, []);
@@ -309,6 +393,7 @@ export function useSound(): UseSoundReturn {
 
   return {
     play,
+    playVoice,
     playBGM,
     stopBGM,
     isMuted: _isMuted,
