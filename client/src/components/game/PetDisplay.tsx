@@ -164,35 +164,46 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
   return (
     <div className="relative flex flex-col items-center">
-      {/* 대화 말풍선 — 이름 탭 위에 배치 (겹침 방지) */}
-      {gameCurrentAction === 'idle' && !isSleeping && (
-        <div className="mb-2 z-20" style={{ whiteSpace: 'nowrap' }}>
-          <ChatBubble
-            petName={pet.name}
-            defaultText={emotionBubble || '말 걸어줘요! 💬'}
-          />
-        </div>
-      )}
+      {/* 이름 탭 + 말풍선 wrapper */}
+      <div className="relative mb-3">
+        {/* 반려몬 이름 + 레벨 (클릭 시 프로필) */}
+        <button
+          onClick={onLongPress}
+          className="cushion-btn flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full"
+          style={{
+            background: 'rgba(255,255,255,0.85)',
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.8)',
+            border: '1.5px solid rgba(255,255,255,0.7)',
+          }}
+          title="프로필 보기"
+        >
+          <span className="text-base">👤</span>
+          <span className="text-sm font-extrabold" style={{ fontFamily: 'Nunito, sans-serif', color: '#5B21B6' }}>
+            {pet.name}
+          </span>
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Lv.{pet.level}</span>
+          <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
+        </button>
 
-      {/* 반려몬 이름 + 레벨 (클릭 시 프로필) */}
-      <button
-        onClick={onLongPress}
-        className="mb-3 cushion-btn flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full"
-        style={{
-          background: 'rgba(255,255,255,0.85)',
-          backdropFilter: 'blur(8px)',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.8)',
-          border: '1.5px solid rgba(255,255,255,0.7)',
-        }}
-        title="프로필 보기"
-      >
-        <span className="text-base">👤</span>
-        <span className="text-sm font-extrabold" style={{ fontFamily: 'Nunito, sans-serif', color: '#5B21B6' }}>
-          {pet.name}
-        </span>
-        <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Lv.{pet.level}</span>
-        <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
-      </button>
+        {/* 대화 말풍선 — 이름 탭 하단 좌측에 absolute 배치 */}
+        {gameCurrentAction === 'idle' && !isSleeping && (
+          <div
+            className="absolute z-20"
+            style={{
+              top: '100%',
+              left: 0,
+              marginTop: '6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <ChatBubble
+              petName={pet.name}
+              defaultText={emotionBubble || '말 걸어줘요! 💬'}
+            />
+          </div>
+        )}
+      </div>
 
       {/* 반려몬 이미지 */}
       <div
