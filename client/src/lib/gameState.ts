@@ -366,6 +366,8 @@ export function playWithPet(state: GameState, itemId: string): GameState {
 }
 
 export function cleanPet(state: GameState): GameState {
+  // 방안 B: 청결 수치가 60 이하일 때만 EXP 지급 (진짜 더러울 때만 보상)
+  const isDirty = state.status.clean <= 60;
   return {
     ...state,
     status: {
@@ -375,14 +377,16 @@ export function cleanPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: state.pet.exp + 5,
-      intimacy: clamp(state.pet.intimacy + 1, 0, 100),
+      exp: isDirty ? state.pet.exp + 5 : state.pet.exp,
+      intimacy: isDirty ? clamp(state.pet.intimacy + 1, 0, 100) : state.pet.intimacy,
     },
     lastSaveTime: Date.now(),
   };
 }
 
 export function sleepPet(state: GameState): GameState {
+  // 방안 B: 피로 수치가 40 이상일 때만 EXP 지급 (진짜 피곤할 때만 보상)
+  const isTired = state.status.fatigue >= 40;
   return {
     ...state,
     status: {
@@ -392,7 +396,7 @@ export function sleepPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: state.pet.exp + 3,
+      exp: isTired ? state.pet.exp + 3 : state.pet.exp,
     },
     lastSaveTime: Date.now(),
   };
