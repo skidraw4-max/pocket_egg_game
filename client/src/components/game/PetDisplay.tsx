@@ -186,14 +186,14 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
           <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
         </button>
 
-        {/* 대화 말풍선 — 이름 탭 하단 좌측에 absolute 배치 */}
+        {/* 대화 말풍선 — 이름 탭 좌측 바깥으로 absolute 배치 (캐릭터 가림 방지) */}
         {gameCurrentAction === 'idle' && !isSleeping && (
           <div
             className="absolute z-20"
             style={{
-              top: '100%',
-              left: 0,
-              marginTop: '6px',
+              top: '50%',
+              right: '105%',
+              transform: 'translateY(-50%)',
               whiteSpace: 'nowrap',
             }}
           >
