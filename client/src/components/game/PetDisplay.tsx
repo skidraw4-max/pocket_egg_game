@@ -14,6 +14,7 @@ import { useGame, PetAction } from '@/contexts/GameContext';
 import { PetProfile, PetStatus, getCharacterImage } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import { useMemo, useState, useEffect, useRef } from 'react';
+import ChatBubble from './ChatBubble';
 
 interface PetDisplayProps {
   pet: PetProfile;
@@ -183,24 +184,13 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
       </button>
 
-      {/* 감정 말풍선 — 스크린샷 스타일: 크고 둥근 타원형 */}
-      {emotionBubble && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 animate-emotion-bubble" style={{ whiteSpace: 'nowrap' }}>
-          <div className="relative px-5 py-3 shadow-lg"
-            style={{
-              background: 'rgba(255,255,255,0.95)',
-              borderRadius: '50% / 40%',
-              border: '2px solid rgba(255,255,255,0.8)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-            }}
-          >
-            <span className="text-sm font-bold" style={{ color: emotionColor(emotion), fontFamily: 'Nunito, sans-serif' }}>
-              {emotionBubble}
-            </span>
-            {/* 말풍선 꼬리 */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 rotate-45"
-              style={{ boxShadow: '2px 2px 4px rgba(0,0,0,0.08)' }} />
-          </div>
+      {/* 대화 말풍선 — ChatBubble 컴포넌트 (감정 텍스트 + 키워드 대화 기능) */}
+      {gameCurrentAction === 'idle' && !isSleeping && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20" style={{ whiteSpace: 'nowrap' }}>
+          <ChatBubble
+            petName={pet.name}
+            defaultText={emotionBubble || '말 걸어줘요! 💬'}
+          />
         </div>
       )}
 
