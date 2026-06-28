@@ -24,23 +24,14 @@ interface PetDisplayProps {
 /** 감정 타입 */
 type Emotion = 'idle' | 'happy' | 'hungry' | 'dirty' | 'tired' | 'love';
 
-/** 액션별 이미지 URL */
-const ACTION_IMAGES: Record<PetAction, string> = {
-  idle: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-default-KfXhPsiuyY6WW7rKYGHEeV.webp',
-  eating: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-eating-iPtYB8zRyPTyfSxY46k6Z8.webp',
-  playing: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-playing-iAoYWMacM6rjtKi3NPymsi.webp',
-  cleaning: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-cleaning-NVSBP3uV68LLcHwT2qBdHp.webp',
-  sleeping: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-petmon-sleeping-Z9nFRhMsPtfNXSXfoFGSFP.webp',
-};
-
-/** 감정별 이미지 URL */
-const EMOTION_IMAGES: Record<Emotion, string> = {
-  idle: ACTION_IMAGES.idle,
-  happy: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-emotion-happy-XGqwzqZwAwe4jy9tZnEBG5.webp',
-  hungry: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-emotion-hungry-oWqg5MoqZ982zP5dEzAw67.webp',
-  dirty: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-emotion-dirty-iedz2HZ5XCUNAVqprzTPKf.webp',
-  tired: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-emotion-tired-f6jBaR8AwCZ7Fzux6eGCET.webp',
-  love: 'https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-emotion-love-XKC3JDJ6qxT7qMf3eGRwBR.webp',
+/** 감정별 오버레이 이모지 (종족 이미지 위에 표시) */
+const EMOTION_OVERLAY: Record<Emotion, string | null> = {
+  idle: null,
+  happy: '😊',
+  hungry: '😢',
+  dirty: '🤢',
+  tired: '😴',
+  love: '😍',
 };
 
 /** 감정별 CSS 애니메이션 */
@@ -147,15 +138,17 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
   // 알 단계 여부
   const isEgg = pet.stage === 'egg';
 
-  // 이미지 결정: 알 단계 > 액션 > 수면 > 감정 > 기본 (종족별 진화 이미지 적용)
+  // 이미지 결정: 항상 현재 종족+단계 이미지 사용 (감정은 오버레이 이모지로 표현)
   const petImage = (() => {
     if (isEgg) return getCharacterImage(pet.species, 'egg');
-    if (isSleeping) return ACTION_IMAGES.sleeping;
-    if (gameCurrentAction !== 'idle') return ACTION_IMAGES[gameCurrentAction];
-    // 감정이 idle이 아니면 감정 이미지 사용, idle이면 종족별 진화 이미지 사용
-    if (emotion !== 'idle') return EMOTION_IMAGES[emotion];
+    // 진화한 종족 이미지를 항상 기준으로 사용
     return getCharacterImage(pet.species, pet.stage);
   })();
+
+  // 감정 오버레이 이모지 (수면/액션 중에는 숨김)
+  const emotionOverlayEmoji = (!isSleeping && gameCurrentAction === 'idle')
+    ? EMOTION_OVERLAY[emotion]
+    : null;
 
   // 애니메이션 결정
   const petAnimation = (() => {
@@ -225,8 +218,18 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
           alt={pet.name}
           className="w-56 h-56 object-contain drop-shadow-2xl"
           style={{ animation: petAnimation }}
-          key={`${gameCurrentAction}-${emotion}`}
+          key={`${pet.species}-${pet.stage}-${gameCurrentAction}-${emotion}`}
         />
+
+        {/* 감정 오버레이 이모지 — 종족 이미지 위에 표시 */}
+        {emotionOverlayEmoji && (
+          <div
+            className="absolute bottom-10 right-2 text-3xl pointer-events-none select-none"
+            style={{ animation: 'emotion-overlay-pop 0.4s ease-out forwards' }}
+          >
+            {emotionOverlayEmoji}
+          </div>
+        )}
 
         {/* 액션 이펙트 파티클 */}
         {effectEmoji && (
@@ -365,7 +368,12 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
           45% { opacity: 1; transform: translate(8px, -22px) scale(1); }
           100% { opacity: 0; transform: translate(12px, -38px) scale(0.2); }
         }
-        .animate-particle-1 { animation: particle-1 2s ease-out infinite; }
+        .animate-decor-twinkle { animation: decor-twinkle 2.5s ease-in-out infinite; }
+        @keyframes emotion-overlay-pop {
+          0%   { opacity: 0; transform: scale(0.5) translateY(4px); }
+          60%  { opacity: 1; transform: scale(1.2) translateY(-2px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
         .animate-particle-2 { animation: particle-2 2s ease-out 0.3s infinite; }
         .animate-particle-3 { animation: particle-3 2s ease-out 0.6s infinite; }
         .animate-particle-4 { animation: particle-4 2s ease-out 0.9s infinite; }
