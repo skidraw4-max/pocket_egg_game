@@ -980,3 +980,136 @@ export function loadGame(): GameState | null {
 export function resetGame(): void {
   localStorage.removeItem(SAVE_KEY);
 }
+
+// ===== 무지개공놀이 보상 시스템 (방안 B + C 조합) =====
+
+export type BallGameGrade = 'perfect' | 'great' | 'normal' | 'complete';
+
+export interface BallGameDropItem {
+  id: string;
+  name: string;
+  icon: string;
+  dropped: boolean; // 실제 드롭 여부 (확률 결과)
+}
+
+export interface BallGameRewardResult {
+  grade: BallGameGrade;
+  exp: number;
+  coins: number;
+  powerBonus: number;   // 힘 성향 보너스
+  comboExpBonus: number; // 콤보 보너스 EXP (방안 C)
+  totalExp: number;      // exp + comboExpBonus
+  dropItem: BallGameDropItem | null;
+}
+
+/**
+ * 무지개공놀이 등급·콤보 기반 보상 계산 (방안 B + C)
+ * @param score  최종 점수
+ * @param maxCombo 최대 콤보 수
+ */
+export function calcBallGameReward(score: number, maxCombo: number): BallGameRewardResult {
+  // ── 방안 B: 등급별 기본 보상 ──────────────────────────────
+  let grade: BallGameGrade;
+  let exp: number;
+  let coins: number;
+  let powerBonus: number;
+  let dropItem: BallGameDropItem | null = null;
+
+  if (score >= 200) {
+    grade = 'perfect';
+    exp = 30; coins = 20; powerBonus = 5;
+    // 무지개 조각 30% 확률 드롭
+    const dropped = Math.random() < 0.30;
+    dropItem = { id: 'fragment_rainbow', name: '무지개 조각', icon: '🌈', dropped };
+  } else if (score >= 120) {
+    grade = 'great';
+    exp = 22; coins = 12; powerBonus = 4;
+    // 반짝 조각 15% 확률 드롭
+    const dropped = Math.random() < 0.15;
+    dropItem = { id: 'fragment_sparkle', name: '반짝 조각', icon: '✨', dropped };
+  } else if (score >= 60) {
+    grade = 'normal';
+    exp = 15; coins = 6; powerBonus = 3;
+  } else {
+    grade = 'complete';
+    exp = 10; coins = 2; powerBonus = 2;
+  }
+
+  // ── 방안 C: 최대 콤보 보너스 EXP ─────────────────────────
+  let comboExpBonus = 0;
+  if (maxCombo >= 10)     comboExpBonus = 15;
+  else if (maxCombo >= 7) comboExpBonus = 10;
+  else if (maxCombo >= 4) comboExpBonus = 5;
+
+  return {
+    grade,
+    exp,
+    coins,
+    powerBonus,
+    comboExpBonus,
+    totalExp: exp + comboExpBonus,
+    dropItem,
+  };
+}
+
+/**
+ * 무지개공놀이 보상을 게임 상태에 적용
+ * - 기분 +20, 피로 +15 (고정 — 놀기 자체의 효과)
+ * - EXP, 코인, 힘 성향은 등급/콤보에 따라 차등
+ * - 드롭 아이템은 인벤토리에 추가 (quantity +1)
+ */
+export function applyBallGameReward(state: GameState, reward: BallGameRewardResult): GameState {
+  // 기분 +20, 피로 +15 (고정)
+  const newStatus: PetStatus = {
+    ...state.status,
+    mood:    clamp(state.status.mood + 20, 0, 100),
+    fatigue: clamp(state.status.fatigue + 15, 0, 100),
+  };
+
+  // 힘 성향 차등 적용
+  const newTraits: GrowthTraits = {
+    ...state.pet.traits,
+    power: state.pet.traits.power + reward.powerBonus,
+  };
+
+  // 드롭 아이템 인벤토리 처리
+  let newInventory = [...state.inventory];
+  if (reward.dropItem?.dropped) {
+    const existingIdx = newInventory.findIndex(i => i.id === reward.dropItem!.id);
+    if (existingIdx >= 0) {
+      // 이미 있으면 수량 +1
+      newInventory[existingIdx] = {
+        ...newInventory[existingIdx],
+        quantity: newInventory[existingIdx].quantity + 1,
+      };
+    } else {
+      // 신규 추가
+      const isRainbow = reward.dropItem.id === 'fragment_rainbow';
+      newInventory.push({
+        id: reward.dropItem.id,
+        name: reward.dropItem.name,
+        type: 'special',
+        quantity: 1,
+        icon: reward.dropItem.icon,
+        effect: {},
+        description: isRainbow
+          ? '퍼펙트 공놀이로 얻은 희귀 조각이에요. 나중에 특별한 용도로 쓰일 거예요!'
+          : '우수한 공놀이로 얻은 반짝이는 조각이에요.',
+      });
+    }
+  }
+
+  return {
+    ...state,
+    status: newStatus,
+    pet: {
+      ...state.pet,
+      traits: newTraits,
+      exp: state.pet.exp + reward.totalExp,
+      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+    },
+    coins: state.coins + reward.coins,
+    inventory: newInventory,
+    lastSaveTime: Date.now(),
+  };
+}

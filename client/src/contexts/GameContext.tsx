@@ -34,6 +34,8 @@ import {
   applyEvolutionReward,
   applyCollectionReward,
   setPlayerNickname,
+  applyBallGameReward,
+  type BallGameRewardResult,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
@@ -77,6 +79,7 @@ interface GameContextType {
   removeFriend: (targetUid: string) => Promise<void>;
   copyMyGameId: () => Promise<boolean>;
   setTutorialSeen: (gameId: string, seen: boolean) => void;
+  playBallGame: (reward: BallGameRewardResult) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -193,6 +196,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playSound('playing');
     setState(prev => {
       const next = playWithPet(prev, itemId);
+      return advanceMission(checkProgression(next), 'play');
+    });
+  }, [checkProgression, triggerAction, playSound]);
+
+  /** 무지개공놀이 등급별 차등 보상 적용 */
+  const playBallGame = useCallback((reward: BallGameRewardResult) => {
+    triggerAction('playing', 3000);
+    playSound('playing');
+    setState(prev => {
+      const next = applyBallGameReward(prev, reward);
       return advanceMission(checkProgression(next), 'play');
     });
   }, [checkProgression, triggerAction, playSound]);
@@ -359,6 +372,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       removeFriend,
       copyMyGameId,
       setTutorialSeen,
+      playBallGame,
     }}
     >
       {children}
