@@ -99,6 +99,28 @@ export default function Home() {
         {/* 상태 게이지 */}
         <StatusBubbles status={state.status} />
 
+        {/* 이름 탭 — 상태바 바로 아래 좌측 배치 */}
+        <div className="px-4 pb-1">
+          <button
+            onClick={() => setActiveMenu('profile')}
+            className="flex items-center gap-2 min-h-[36px] px-3 py-1.5 rounded-full"
+            style={{
+              background: 'rgba(255,255,255,0.85)',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.10), inset 0 1px 2px rgba(255,255,255,0.8)',
+              border: '1.5px solid rgba(255,255,255,0.7)',
+            }}
+            title="프로필 보기"
+          >
+            <span className="text-sm">👤</span>
+            <span className="text-sm font-extrabold" style={{ fontFamily: 'Nunito, sans-serif', color: '#5B21B6' }}>
+              {state.pet.name}
+            </span>
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Lv.{state.pet.level}</span>
+            <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(state.pet.intimacy)}</span>
+          </button>
+        </div>
+
         {/* 중앙: 반려몬 */}
         <div className="flex-1 flex items-center justify-center">
           <PetDisplay
