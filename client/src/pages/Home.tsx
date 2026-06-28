@@ -99,8 +99,8 @@ export default function Home() {
         {/* 상태 게이지 */}
         <StatusBubbles status={state.status} />
 
-        {/* 이름 탭 — 상태바 바로 아래 좌측 배치 */}
-        <div className="px-4 pb-1">
+        {/* 이름 탭 — 상태바 바로 아래 중앙 배치 */}
+        <div className="flex justify-center pb-1">
           <button
             onClick={() => setActiveMenu('profile')}
             className="flex items-center gap-2 min-h-[36px] px-3 py-1.5 rounded-full"
