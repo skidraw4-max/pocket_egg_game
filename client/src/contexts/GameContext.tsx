@@ -109,7 +109,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [currentAction, setCurrentAction] = useState<PetAction>('idle');
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { play: playSound } = useSound();
+  const { play: playSound, playVoice } = useSound();
   const [attendanceResult, setAttendanceResult] = useState<AttendanceResult | null>(null);
   const clearAttendanceResult = useCallback(() => setAttendanceResult(null), []);
 
