@@ -196,39 +196,49 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const feed = useCallback((itemId: string) => {
     triggerAction('eating', 2500);
     playSound('eating');
+    playVoice('eating');
     setState(prev => {
       const next = feedPet(prev, itemId);
-      return advanceMission(checkProgression(next), 'feed');
+      const result = checkProgression(next);
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return advanceMission(result, 'feed');
     });
-  }, [checkProgression, triggerAction, playSound]);
+  }, [checkProgression, triggerAction, playSound, playVoice]);
 
   const play = useCallback((itemId: string) => {
     triggerAction('playing', 3000);
     playSound('playing');
+    playVoice('playing');
     setState(prev => {
       const next = playWithPet(prev, itemId);
-      return advanceMission(checkProgression(next), 'play');
+      const result = checkProgression(next);
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return advanceMission(result, 'play');
     });
-  }, [checkProgression, triggerAction, playSound]);
+  }, [checkProgression, triggerAction, playSound, playVoice]);
 
   /** 무지개공놀이 등급별 차등 보상 적용 */
   const playBallGame = useCallback((reward: BallGameRewardResult) => {
     triggerAction('playing', 3000);
     playSound('playing');
+    playVoice('playing');
     setState(prev => {
       const next = applyBallGameReward(prev, reward);
-      return advanceMission(checkProgression(next), 'play');
+      const result = checkProgression(next);
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return advanceMission(result, 'play');
     });
-  }, [checkProgression, triggerAction, playSound]);
+  }, [checkProgression, triggerAction, playSound, playVoice]);
 
   const clean = useCallback(() => {
     triggerAction('cleaning', 2500);
     playSound('cleaning');
+    playVoice('cleaning');
     setState(prev => {
       const next = cleanPet(prev);
       return advanceMission(checkProgression(next), 'clean');
     });
-  }, [checkProgression, triggerAction, playSound]);
+  }, [checkProgression, triggerAction, playSound, playVoice]);
 
   const sleep = useCallback(() => {
     setIsSleeping(true);
@@ -243,7 +253,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setIsSleeping(false);
       setCurrentAction('idle');
     }, 3000);
-  }, [checkProgression, playSound]);
+  }, [checkProgression, playSound, playVoice]);
 
   const touch = useCallback(() => {
     playSound('touch');
