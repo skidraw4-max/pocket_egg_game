@@ -5,6 +5,10 @@
  *  - Android 네이티브 앱(Capacitor): @capacitor-community/admob 플러그인 사용
  *  - 웹/PWA: 광고 미지원 → 사용자에게 안내 메시지 표시
  *
+ * BGM 연동:
+ *  - 광고 표시 직전 AudioContext suspend (BGM 정지)
+ *  - 광고 종료(Dismissed) 후 AudioContext resume (BGM 재개)
+ *
  * 광고 단위 ID:
  *   VITE_ADMOB_REWARDED_AD_UNIT_ID 환경변수 또는 하드코딩 값 사용
  */
@@ -27,6 +31,30 @@ function isCapacitorEnv(): boolean {
   return typeof (window as any).Capacitor !== 'undefined' &&
     (window as any).Capacitor?.isNativePlatform?.() === true;
 }
+
+// ─── BGM 일시정지 / 재개 헬퍼 ───────────────────────────────────────────────
+// useSound 모듈의 전역 AudioContext를 직접 참조하는 대신,
+// window.__audioCtxForAd__ 에 AudioContext를 노출하는 방식으로 연결합니다.
+// useSound.ts 에서 getAudioCtx() 호출 시 window.__audioCtxForAd__ 에 등록합니다.
+
+function suspendBGM() {
+  try {
+    const ctx: AudioContext | undefined = (window as any).__audioCtxForAd__;
+    if (ctx && ctx.state === 'running') {
+      ctx.suspend();
+    }
+  } catch {}
+}
+
+function resumeBGM() {
+  try {
+    const ctx: AudioContext | undefined = (window as any).__audioCtxForAd__;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+  } catch {}
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 /** AdMob 초기화 상태 */
 let _initialized = false;
@@ -58,7 +86,7 @@ export async function initAdMob(): Promise<void> {
 
 /**
  * 보상형 광고 표시
- * - Android 네이티브: AdMob Rewarded Ad
+ * - Android 네이티브: AdMob Rewarded Ad (광고 중 BGM 자동 정지/재개)
  * - 웹/PWA: 미지원 안내 반환
  */
 export async function showRewardedAd(): Promise<AdResult> {
@@ -93,6 +121,8 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
       const settle = (result: AdResult) => {
         if (settled) return;
         settled = true;
+        // 광고 종료 → BGM 재개
+        resumeBGM();
         // 리스너 제거
         AdMob.removeAllListeners().catch(() => {});
         resolve(result);
@@ -118,7 +148,8 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
         settle({ success: false, rewarded: false, reason: 'error' });
       });
 
-      // 광고 표시 시작
+      // 광고 표시 직전 BGM 정지 → 광고 시작
+      suspendBGM();
       AdMob.showRewardVideoAd().catch(() => {
         settle({ success: false, rewarded: false, reason: 'error' });
       });
@@ -130,6 +161,8 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
     });
   } catch (e) {
     console.error('[AdMob] 광고 오류:', e);
+    // 오류 시에도 BGM 재개 보장
+    resumeBGM();
     return { success: false, rewarded: false, reason: 'error' };
   }
 }

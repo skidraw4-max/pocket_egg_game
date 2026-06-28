@@ -133,6 +133,8 @@ function getAudioCtx(): AudioContext {
   if (!_audioCtx || _audioCtx.state === 'closed') {
     _audioCtx = new (window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    // admob.ts에서 BGM 정지/재개에 사용할 수 있도록 노옶
+    (window as any).__audioCtxForAd__ = _audioCtx;
   }
   if (_audioCtx.state === 'suspended') {
     _audioCtx.resume();
