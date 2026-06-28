@@ -38,6 +38,16 @@ import {
   type BallGameRewardResult,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
+import {
+  type EggColorId,
+  type GachaEggId,
+  getSelectEgg,
+  getGachaEgg,
+  applyExpPassive,
+  applyIntimacyPassive,
+  getStatusDecayMult,
+  getFatigueRecoveryMult,
+} from '@/lib/eggTypes';
 import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
 import { registerNickname } from '@/lib/firebase';
 
@@ -55,7 +65,8 @@ interface GameContextType {
   setNickname: (nickname: string) => Promise<void>;
   claimMission: (missionId: string) => void;
   claimMissionAd: (missionId: string) => void;
-  newGamePlus: () => void;
+  newGamePlus: (gachaEgg?: GachaEggId) => void;
+  setEggColor: (eggColor: EggColorId) => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -300,19 +311,58 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // 뉴게임+: 코인/젬/도감은 유지, 반려몬·인벤토리·미션 초기화
-  const newGamePlus = useCallback(() => {
-    setState(prev => ({
-      ...INITIAL_GAME_STATE,
-      coins: prev.coins,
-      gems: prev.gems,
-      collection: prev.collection,
-      room: prev.room ?? { wallpaper: 'default', furniture: [] }, // 가구도 유지
-      friendCoins: prev.friendCoins ?? 0,  // 친구 코인 유지
-      nickname: prev.nickname ?? '',        // 닉네임 유지
-      attendance: prev.attendance ?? INITIAL_GAME_STATE.attendance, // 출석 유지
-    }));
+  // gachaEgg: 뽑기로 얻은 알 ID (뉴게임+ 전용)
+  const newGamePlus = useCallback((gachaEgg?: GachaEggId) => {
+    setState(prev => {
+      // 가챠 알 패시브 성향 보너스 계산
+      const gachaDef = gachaEgg ? getGachaEgg(gachaEgg) : null;
+      const traitBonus = gachaDef?.passiveEffect.traitBonus ?? {};
+      return {
+        ...INITIAL_GAME_STATE,
+        coins: prev.coins,
+        gems: prev.gems,
+        collection: prev.collection,
+        room: prev.room ?? { wallpaper: 'default', furniture: [] },
+        friendCoins: prev.friendCoins ?? 0,
+        nickname: prev.nickname ?? '',
+        attendance: prev.attendance ?? INITIAL_GAME_STATE.attendance,
+        eggColor: null,          // 뉴게임+는 가챠 알 사용
+        gachaEgg: gachaEgg ?? null,
+        // 가챠 알 패시브 성향 보너스 즉시 적용
+        pet: {
+          ...INITIAL_GAME_STATE.pet,
+          traits: {
+            power:        (INITIAL_GAME_STATE.pet.traits.power        + (traitBonus.power        ?? 0)),
+            intelligence: (INITIAL_GAME_STATE.pet.traits.intelligence + (traitBonus.intelligence ?? 0)),
+            charm:        (INITIAL_GAME_STATE.pet.traits.charm        + (traitBonus.charm        ?? 0)),
+            vitality:     (INITIAL_GAME_STATE.pet.traits.vitality     + (traitBonus.vitality     ?? 0)),
+          },
+        },
+      };
+    });
     setPendingEvolution(null);
     setIsSleeping(false);
+  }, []);
+
+  /** 최초 알 선택 — eggColor 저장 + 선택형 알 패시브 성향 보너스 즉시 적용 */
+  const setEggColor = useCallback((eggColor: EggColorId) => {
+    setState(prev => {
+      const eggDef = getSelectEgg(eggColor);
+      const traitBonus = eggDef.passiveEffect.traitBonus ?? {};
+      return {
+        ...prev,
+        eggColor,
+        pet: {
+          ...prev.pet,
+          traits: {
+            power:        prev.pet.traits.power        + (traitBonus.power        ?? 0),
+            intelligence: prev.pet.traits.intelligence + (traitBonus.intelligence ?? 0),
+            charm:        prev.pet.traits.charm        + (traitBonus.charm        ?? 0),
+            vitality:     prev.pet.traits.vitality     + (traitBonus.vitality     ?? 0),
+          },
+        },
+      };
+    });
   }, []);
 
   const confirmEvolution = useCallback(() => {
@@ -373,6 +423,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       copyMyGameId,
       setTutorialSeen,
       playBallGame,
+      setEggColor,
     }}
     >
       {children}

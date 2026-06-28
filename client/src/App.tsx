@@ -7,35 +7,59 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { GameProvider } from "./contexts/GameContext";
 import Home from "./pages/Home";
 import TitleScreen from "./pages/TitleScreen";
+import EggSelectScreen from "./pages/EggSelectScreen";
 import { useState } from "react";
+import { useGame } from "./contexts/GameContext";
+import type { EggColorId } from "./lib/eggTypes";
 
-/** 타이틀 → 게임 화면 전환을 관리하는 래퍼 */
+type AppScreen = 'title' | 'egg_select' | 'game';
+
+/** 타이틀 → 알 선택 → 게임 화면 전환을 관리하는 래퍼 */
 function GameShell() {
-  // 앱 실행(세션) 단위로 타이틀 표시: sessionStorage를 사용하여 앱 종료 후 재시작 시 항상 타이틀 화면 표시
-  const [gameStarted, setGameStarted] = useState<boolean>(() => {
+  const { state, setEggColor } = useGame();
+
+  // 세션 단위로 타이틀 표시 여부 결정
+  const [screen, setScreen] = useState<AppScreen>(() => {
     try {
-      return sessionStorage.getItem('pocket_egg_session_started') === 'true';
-    } catch {
-      return false;
-    }
+      if (sessionStorage.getItem('pocket_egg_session_started') === 'true') {
+        return 'game';
+      }
+    } catch { /* ignore */ }
+    return 'title';
   });
 
-  const handleStart = () => {
-    try {
-      sessionStorage.setItem('pocket_egg_session_started', 'true');
-    } catch { /* ignore */ }
-    setGameStarted(true);
+  /** 타이틀 → 알 선택 (신규) 또는 게임 (기존 유저) */
+  const handleTitleStart = () => {
+    // 이미 알을 선택한 기존 유저는 바로 게임으로
+    if (state.eggColor !== null || state.gachaEgg !== null) {
+      try { sessionStorage.setItem('pocket_egg_session_started', 'true'); } catch { /* ignore */ }
+      setScreen('game');
+    } else {
+      setScreen('egg_select');
+    }
+  };
+
+  /** 알 선택 완료 → 게임 시작 */
+  const handleEggSelect = (eggColor: EggColorId) => {
+    setEggColor(eggColor);
+    try { sessionStorage.setItem('pocket_egg_session_started', 'true'); } catch { /* ignore */ }
+    setScreen('game');
   };
 
   return (
     <div className="relative w-full h-full">
-      {/* 게임 메인 화면 (항상 마운트, 타이틀 뒤에 대기) */}
+      {/* 게임 메인 화면 (항상 마운트) */}
       <Home />
 
-      {/* 타이틀 화면 (최초 실행 시에만 표시) */}
-      {!gameStarted && (
+      {/* 알 선택 화면 */}
+      {screen === 'egg_select' && (
+        <EggSelectScreen onSelect={handleEggSelect} />
+      )}
+
+      {/* 타이틀 화면 */}
+      {screen === 'title' && (
         <div className="absolute inset-0 z-[200]">
-          <TitleScreen onStart={handleStart} />
+          <TitleScreen onStart={handleTitleStart} />
         </div>
       )}
     </div>

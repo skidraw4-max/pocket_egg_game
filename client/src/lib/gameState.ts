@@ -57,6 +57,8 @@ export interface GameState {
   nickname: string;                    // 플레이어 닉네임 (반려몬 이름과 별개)
   tutorialSeen: Record<string, boolean>; // 튜토리얼 완료 플래그 (게임 ID → 완료 여부)
   ownedWallpapers: string[];               // 구매한 배경 ID 목록
+  eggColor: string | null;                 // 선택형 알 색상 ID (최초 선택)
+  gachaEgg: string | null;                 // 가챠형 알 ID (뉴게임+ 뽑기)
 }
 
 export interface InventoryItem {
@@ -272,6 +274,8 @@ export const INITIAL_GAME_STATE: GameState = {
   nickname: '',
   tutorialSeen: {},
   ownedWallpapers: [],
+  eggColor: null,
+  gachaEgg: null,
 };
 // ===== 시간 경과 로직 =====
 
@@ -970,6 +974,13 @@ export function loadGame(): GameState | null {
     // ownedWallpapers 필드 마이그레이션
     if (!Array.isArray(data.ownedWallpapers)) {
       data.ownedWallpapers = [];
+    }
+    // eggColor/gachaEgg 필드 마이그레이션 (구버전 저장 데이터 대응)
+    if (!('eggColor' in data)) {
+      (data as GameState).eggColor = null;
+    }
+    if (!('gachaEgg' in data)) {
+      (data as GameState).gachaEgg = null;
     }
     return data;
   } catch {

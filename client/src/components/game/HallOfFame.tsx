@@ -1,10 +1,13 @@
 /**
  * HallOfFame - 명예의 전당 & 뉴게임+ 화면
  * 레전드몬(최종 진화) 달성 후 표시되는 엔드 콘텐츠
+ * 뉴게임+ 시작 시 EggGachaScreen으로 전환
  */
 import { useGame } from '@/contexts/GameContext';
 import { getCharacterImage } from '@/lib/gameState';
 import { useState } from 'react';
+import EggGachaScreen from '@/pages/EggGachaScreen';
+import type { GachaEggId } from '@/lib/eggTypes';
 
 interface HallOfFameProps {
   onClose: () => void;
@@ -13,12 +16,24 @@ interface HallOfFameProps {
 export default function HallOfFame({ onClose }: HallOfFameProps) {
   const { state, newGamePlus } = useGame();
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showGacha, setShowGacha] = useState(false);
 
   const pet = state.pet;
   const isMythic = pet.stage === 'mythic';
   const legendImage = isMythic
     ? getCharacterImage(pet.species, 'mythic')
     : getCharacterImage('레전드몬', 'adult');
+
+  /** 가챠 결과 수신 → 뉴게임+ 실행 */
+  const handleGachaSelect = (gachaEgg: GachaEggId) => {
+    newGamePlus(gachaEgg);
+    onClose();
+  };
+
+  // 가챠 화면
+  if (showGacha) {
+    return <EggGachaScreen onSelect={handleGachaSelect} />;
+  }
 
   // 뉴게임+ 확인 다이얼로그
   if (showConfirm) {
@@ -28,11 +43,12 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
           <div className="text-4xl mb-3">🔄</div>
           <h3 className="text-lg font-bold text-warm-brown mb-2">뉴게임+ 시작</h3>
           <p className="text-sm text-sub-brown mb-1">
-            새로운 알에서 다시 시작해요.
+            새로운 알 뽑기로 다시 시작해요!
           </p>
           <p className="text-xs text-sub-brown/70 mb-4">
             코인·젬·도감 기록은 유지되고,<br />
-            반려몬과 인벤토리는 초기화돼요.
+            반려몬과 인벤토리는 초기화돼요.<br />
+            <span className="text-purple-600 font-semibold">특별한 알을 뽑아 새 여정을 시작하세요!</span>
           </p>
           <div className="flex gap-3">
             <button
@@ -43,12 +59,12 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
             </button>
             <button
               onClick={() => {
-                newGamePlus?.();
-                onClose();
+                setShowConfirm(false);
+                setShowGacha(true);
               }}
               className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-peach to-lavender text-white font-bold text-sm"
             >
-              시작하기
+              🎰 알 뽑기!
             </button>
           </div>
         </div>
@@ -130,7 +146,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
           onClick={() => setShowConfirm(true)}
           className="w-full py-4 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-400 text-white font-black text-base shadow-lg active:scale-95 transition-transform"
         >
-          🔄 뉴게임+ 시작
+          🎰 뉴게임+ 알 뽑기
         </button>
         <button
           onClick={onClose}

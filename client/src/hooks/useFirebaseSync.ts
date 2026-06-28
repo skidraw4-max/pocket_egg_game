@@ -97,6 +97,8 @@ export function useFirebaseSync(state: GameState | null) {
         if (!data.missions) data.missions = { missions: [], lastResetDate: '' };
         if (!Array.isArray(data.inventory)) data.inventory = [];
         if (!Array.isArray(data.collection)) data.collection = [];
+        if (!('eggColor' in data)) (data as GameState).eggColor = null;
+        if (!('gachaEgg' in data)) (data as GameState).gachaEgg = null;
         return data;
       }
     } catch (e) {
