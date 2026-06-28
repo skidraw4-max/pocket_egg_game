@@ -164,6 +164,16 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
   return (
     <div className="relative flex flex-col items-center">
+      {/* 대화 말풍선 — 이름 탭 위에 배치 (겹침 방지) */}
+      {gameCurrentAction === 'idle' && !isSleeping && (
+        <div className="mb-2 z-20" style={{ whiteSpace: 'nowrap' }}>
+          <ChatBubble
+            petName={pet.name}
+            defaultText={emotionBubble || '말 걸어줘요! 💬'}
+          />
+        </div>
+      )}
+
       {/* 반려몬 이름 + 레벨 (클릭 시 프로필) */}
       <button
         onClick={onLongPress}
@@ -183,16 +193,6 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>Lv.{pet.level}</span>
         <span className="text-xs" style={{ color: '#EC4899' }}>♥ {Math.floor(pet.intimacy)}</span>
       </button>
-
-      {/* 대화 말풍선 — ChatBubble 컴포넌트 (감정 텍스트 + 키워드 대화 기능) */}
-      {gameCurrentAction === 'idle' && !isSleeping && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20" style={{ whiteSpace: 'nowrap' }}>
-          <ChatBubble
-            petName={pet.name}
-            defaultText={emotionBubble || '말 걸어줘요! 💬'}
-          />
-        </div>
-      )}
 
       {/* 반려몬 이미지 */}
       <div
