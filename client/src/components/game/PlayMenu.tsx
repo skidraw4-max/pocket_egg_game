@@ -6,6 +6,7 @@
 import { useGame } from '@/contexts/GameContext';
 import { useState } from 'react';
 import PuzzleGame from '@/components/game/PuzzleGame';
+import BallGame from '@/components/game/BallGame';
 import GameTutorialCard from '@/components/game/GameTutorialCard';
 import { TUTORIALS } from '@/lib/tutorialData';
 
@@ -17,6 +18,7 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   const { state, play, setTutorialSeen } = useGame();
   const toyItems = state.inventory.filter(i => i.type === 'toy');
   const [showPuzzle, setShowPuzzle] = useState(false);
+  const [showBallGame, setShowBallGame] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   /** 장난감 클릭 핸들러 — tutorialSeen 여부에 따라 분기 */
@@ -35,6 +37,8 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   const startGame = (itemId: string) => {
     if (itemId === 'toy_puzzle') {
       setShowPuzzle(true);
+    } else if (itemId === 'toy_ball') {
+      setShowBallGame(true);
     } else {
       play(itemId);
       onClose();
@@ -60,6 +64,11 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   // 퍼즐 게임 화면
   if (showPuzzle) {
     return <PuzzleGame onClose={onClose} />;
+  }
+
+  // 공놀이 게임 화면
+  if (showBallGame) {
+    return <BallGame onClose={onClose} />;
   }
 
   // 튜토리얼 카드 오버레이 (장난감 목록 위에 표시)
