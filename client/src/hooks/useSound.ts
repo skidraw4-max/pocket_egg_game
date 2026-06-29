@@ -90,6 +90,12 @@ const _loading: Partial<Record<SoundKey, boolean>> = {};
 const _voiceCache: Map<string, AudioBuffer> = new Map();
 const _voiceLoading: Map<string, boolean> = new Map();
 
+// ─── 터치 음성 전용 큐 상태 ───────────────────────────────────────────────────
+// 터치 음성이 재생 중인지 여부
+let _touchVoicePlaying = false;
+// 재생 중 추가 터치가 들어왔는지 (대기 플래그)
+let _touchVoicePending = false;
+
 // 볼륨/음소거 전역 값 (localStorage에서 초기화)
 let _volume: number = (() => {
   try {
@@ -281,6 +287,70 @@ export function useSound(): UseSoundReturn {
   // 한국어 음성 재생 (상황별 랜덤 1개 선택, SFX 효과음 직후 약간 딜레이)
   const playVoice = useCallback((key: VoiceKey) => {
     if (_isMuted) return;
+
+    // ── 터치 음성 전용: 큐 방식으로 중복 재생 방지 ──────────────────────────
+    if (key === 'touch') {
+      if (_touchVoicePlaying) {
+        // 이미 재생 중 → 대기 플래그만 세우고 즉시 반환
+        _touchVoicePending = true;
+        return;
+      }
+      // 재생 시작
+      _touchVoicePlaying = true;
+      _touchVoicePending = false;
+
+      const playTouchVoice = async () => {
+        try {
+          const ctx = getAudioCtx();
+          if (ctx.state === 'suspended') {
+            _touchVoicePlaying = false;
+            _touchVoicePending = false;
+            return;
+          }
+          const urls = VOICE_URLS['touch'];
+          const url = urls[Math.floor(Math.random() * urls.length)];
+          let buf = _voiceCache.get(url);
+          if (!buf) buf = (await loadVoiceBuffer(url)) ?? undefined;
+          if (!buf) {
+            _touchVoicePlaying = false;
+            _touchVoicePending = false;
+            return;
+          }
+          // SFX 효과음과 겹치지 않도록 300ms 딜레이
+          await new Promise(r => setTimeout(r, 300));
+          if (ctx.state === 'suspended') {
+            _touchVoicePlaying = false;
+            _touchVoicePending = false;
+            return;
+          }
+          const source = ctx.createBufferSource();
+          source.buffer = buf;
+          const gain = ctx.createGain();
+          gain.gain.value = _volume * 0.95;
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          source.onended = () => {
+            _touchVoicePlaying = false;
+            if (_touchVoicePending) {
+              // 대기 중인 터치가 있으면 다음 음성 재생
+              _touchVoicePending = false;
+              playTouchVoice();
+            }
+            // 대기 없으면 그냥 종료 (다음 터치 시까지 재생 안 함)
+          };
+          _touchVoicePlaying = true;
+          source.start(0);
+        } catch (err) {
+          console.warn('[useSound] playVoice touch error:', err);
+          _touchVoicePlaying = false;
+          _touchVoicePending = false;
+        }
+      };
+
+      playTouchVoice();
+      return;
+    }
+    // ── 기타 음성: 기존 방식 (즉시 재생) ────────────────────────────────────
     (async () => {
       try {
         const ctx = getAudioCtx();
