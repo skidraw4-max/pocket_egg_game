@@ -67,6 +67,8 @@ interface GameContextType {
   claimMissionAd: (missionId: string) => void;
   newGamePlus: (gachaEgg?: GachaEggId) => void;
   setEggColor: (eggColor: EggColorId) => void;
+  /** 재화·도감 유지, 반려몬·인벤토리 초기화 후 알 선택 스핀으로 이동 */
+  resetPet: (onNavigate: () => void) => void;
   pendingEvolution: EvolutionResult | null;
   confirmEvolution: () => void;
   resetPendingEvolution: () => void;
@@ -356,6 +358,33 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setIsSleeping(false);
   }, []);
 
+  /** 새로 키우기 — 재화·도감·방·닉네임 유지, 반려몬·인벤토리·알 초기화 후 알 선택 스핀으로 이동 */
+  const resetPet = useCallback((onNavigate: () => void) => {
+    setState(prev => ({
+      ...INITIAL_GAME_STATE,
+      // ── 유지할 항목 ──────────────────────────────────────────────────────────
+      coins: prev.coins,
+      gems: prev.gems,
+      collection: prev.collection,
+      claimedCollectionRewards: prev.claimedCollectionRewards,
+      claimedEvolutionRewards: prev.claimedEvolutionRewards,
+      room: prev.room,
+      ownedWallpapers: prev.ownedWallpapers,
+      friendCoins: prev.friendCoins,
+      nickname: prev.nickname,
+      attendance: prev.attendance,
+      tutorialSeen: prev.tutorialSeen,
+      // ── 알 선택 초기화 (룰렛 스핀 진입) ─────────────────────────────────────
+      eggColor: null,
+      gachaEgg: null,
+      lastSaveTime: Date.now(),
+    }));
+    setPendingEvolution(null);
+    setIsSleeping(false);
+    // 상태 업데이트 후 화면 전환
+    setTimeout(onNavigate, 50);
+  }, []);
+
   /** 최초 알 선택 — eggColor 저장 + 선택형 알 패시브 성향 보너스 즉시 적용 */
   const setEggColor = useCallback((eggColor: EggColorId) => {
     setState(prev => {
@@ -412,6 +441,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       claimMission,
       claimMissionAd,
       newGamePlus,
+      resetPet,
         pendingEvolution,
         confirmEvolution,
         resetPendingEvolution,

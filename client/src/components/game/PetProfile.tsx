@@ -8,13 +8,15 @@ import { useState, useRef } from 'react';
 
 interface PetProfileProps {
   onClose: () => void;
+  onResetPet?: () => void;
 }
 
-export default function PetProfile({ onClose }: PetProfileProps) {
+export default function PetProfile({ onClose, onResetPet }: PetProfileProps) {
   const { state, rename } = useGame();
   const { pet, status } = state;
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(pet.name);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleNameEdit = () => {
@@ -191,6 +193,56 @@ export default function PetProfile({ onClose }: PetProfileProps) {
             {getEvolutionHint(pet.level, pet.stage, pet.traits)}
           </div>
         </div>
+
+        {/* 새로 키우기 버튼 */}
+        {onResetPet && (
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="w-full mt-4 py-2.5 rounded-2xl border-2 border-red-200 text-red-400 text-sm font-semibold hover:bg-red-50 active:bg-red-100 transition-colors"
+          >
+            🔄 새로 키우기
+          </button>
+        )}
+
+        {/* 새로 키우기 확인 다이얼로그 */}
+        {showResetConfirm && (
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowResetConfirm(false)}
+          >
+            <div
+              className="w-[85%] max-w-xs bg-white rounded-3xl p-5 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-center mb-4">
+                <div className="text-3xl mb-2">🥚</div>
+                <h3 className="text-base font-bold text-warm-brown mb-1">새로 키우기</h3>
+                <p className="text-xs text-sub-brown leading-relaxed">
+                  반려몬과 인벤토리가 초기화되고<br />
+                  알 선택 스핀부터 다시 시작해요.
+                </p>
+                <div className="mt-2 bg-cream rounded-xl p-2 text-xs text-sub-brown">
+                  ✅ 유지: 코인, 젬, 도감, 방 꾸미기<br />
+                  ❌ 초기화: 반려몬, 인벤토리, 알 선택
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-2.5 rounded-2xl bg-muted text-sub-brown text-sm font-semibold"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => { setShowResetConfirm(false); onResetPet(); }}
+                  className="flex-1 py-2.5 rounded-2xl bg-red-400 text-white text-sm font-bold"
+                >
+                  새로 시작
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <style>{`
           @keyframes pop-in {

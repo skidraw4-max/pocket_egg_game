@@ -37,7 +37,11 @@ const WALLPAPER_URLS: Record<string, string> = {
   wallpaper_candy:   'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/vuxdWHKrUrCnFAUo.png',
 };
 
-export default function Home() {
+interface HomeProps {
+  onResetPet?: () => void;
+}
+
+export default function Home({ onResetPet }: HomeProps) {
   const { state, pendingEvolution, isSleeping, attendanceResult, clearAttendanceResult, syncing } = useGame();
   const { playBGM } = useSound();
   const [activeMenu, setActiveMenu] = useState<ActiveMenu>('none');
@@ -148,7 +152,10 @@ export default function Home() {
         <CollectionMenu onClose={() => setActiveMenu('none')} />
       )}
       {activeMenu === 'profile' && (
-        <PetProfile onClose={() => setActiveMenu('none')} />
+        <PetProfile
+          onClose={() => setActiveMenu('none')}
+          onResetPet={onResetPet ? () => { setActiveMenu('none'); onResetPet(); } : undefined}
+        />
       )}
       {activeMenu === 'quest' && (
         <QuestPanel onClose={() => setActiveMenu('none')} />

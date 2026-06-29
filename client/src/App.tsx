@@ -16,7 +16,7 @@ type AppScreen = 'title' | 'egg_select' | 'game';
 
 /** 타이틀 → 알 선택 → 게임 화면 전환을 관리하는 래퍼 */
 function GameShell() {
-  const { state, setEggColor } = useGame();
+  const { state, setEggColor, resetPet } = useGame();
 
   // 세션 단위로 타이틀 표시 여부 결정
   const [screen, setScreen] = useState<AppScreen>(() => {
@@ -39,6 +39,14 @@ function GameShell() {
     }
   };
 
+  /** 새로 키우기 → 알 선택 스핀으로 이동 */
+  const handleResetPet = () => {
+    resetPet(() => {
+      try { sessionStorage.removeItem('pocket_egg_session_started'); } catch { /* ignore */ }
+      setScreen('egg_select');
+    });
+  };
+
   /** 알 선택 완료 → 게임 시작 */
   const handleEggSelect = (eggColor: EggColorId) => {
     setEggColor(eggColor);
@@ -49,7 +57,7 @@ function GameShell() {
   return (
     <div className="relative w-full h-full">
       {/* 게임 메인 화면 (항상 마운트) */}
-      <Home />
+      <Home onResetPet={handleResetPet} />
 
       {/* 알 선택 화면 */}
       {screen === 'egg_select' && (
