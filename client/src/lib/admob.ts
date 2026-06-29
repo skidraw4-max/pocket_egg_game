@@ -129,13 +129,18 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
       };
 
       // 보상 지급 이벤트 (광고 끝까지 시청)
-      AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
+      AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
+        console.log('[AdMob] 보상 획득 성공:', reward);
         rewarded = true;
       });
 
       // 광고 닫힘 이벤트
       AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
-        settle({ success: true, rewarded });
+        console.log('[AdMob] 광고 닫힘 (Dismissed), 보상여부:', rewarded);
+        // 일부 기기에서 Rewarded 이벤트가 Dismissed보다 늦게 오는 경우 대비 300ms 대기
+        setTimeout(() => {
+          settle({ success: true, rewarded });
+        }, 300);
       });
 
       // 광고 로드 실패
@@ -154,10 +159,13 @@ async function showCapacitorRewardedAd(): Promise<AdResult> {
         settle({ success: false, rewarded: false, reason: 'error' });
       });
 
-      // 타임아웃: 30초 내 응답 없으면 실패 처리
+      // 타임아웃: 120초 내 응답 없으면 실패 처리 (광고 시청 시간 포함)
       setTimeout(() => {
-        settle({ success: false, rewarded: false, reason: 'not_loaded' });
-      }, 30_000);
+        if (!settled) {
+          console.warn('[AdMob] 광고 시청 타임아웃');
+          settle({ success: false, rewarded: false, reason: 'not_loaded' });
+        }
+      }, 120_000);
     });
   } catch (e) {
     console.error('[AdMob] 광고 오류:', e);
