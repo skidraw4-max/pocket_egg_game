@@ -91,9 +91,9 @@ const _voiceCache: Map<string, AudioBuffer> = new Map();
 const _voiceLoading: Map<string, boolean> = new Map();
 
 // ─── 터치 음성 전용 큐 상태 ───────────────────────────────────────────────────
-// 터치 음성이 재생 중인지 여부
-let _touchVoicePlaying = false;
-// 재생 중 추가 터치가 들어왔는지 (대기 플래그)
+// 현재 재생 중인 터치 음성 source (null이면 재생 중 아님)
+let _touchVoiceSource: AudioBufferSourceNode | null = null;
+// 재생 중 추가 터치가 들어왔는지 (대기 플래그 — 최대 1회 대기)
 let _touchVoicePending = false;
 
 // 볼륨/음소거 전역 값 (localStorage에서 초기화)
@@ -288,22 +288,22 @@ export function useSound(): UseSoundReturn {
   const playVoice = useCallback((key: VoiceKey) => {
     if (_isMuted) return;
 
-    // ── 터치 음성 전용: 큐 방식으로 중복 재생 방지 ──────────────────────────
+    // ── 터치 음성 전용: source 직접 추적으로 중복 재생 방지 ──────────────────
     if (key === 'touch') {
-      if (_touchVoicePlaying) {
-        // 이미 재생 중 → 대기 플래그만 세우고 즉시 반환
+      if (_touchVoiceSource !== null) {
+        // 이미 재생 중인 source가 있음 → 대기 플래그만 세우고 즉시 반환
         _touchVoicePending = true;
         return;
       }
-      // 재생 시작
-      _touchVoicePlaying = true;
+      // 재생 시작 — 즉시 더미 마커를 세워 동시 진입 차단
+      // (실제 source는 아래에서 할당)
       _touchVoicePending = false;
 
       const playTouchVoice = async () => {
         try {
           const ctx = getAudioCtx();
           if (ctx.state === 'suspended') {
-            _touchVoicePlaying = false;
+            _touchVoiceSource = null;
             _touchVoicePending = false;
             return;
           }
@@ -312,14 +312,14 @@ export function useSound(): UseSoundReturn {
           let buf = _voiceCache.get(url);
           if (!buf) buf = (await loadVoiceBuffer(url)) ?? undefined;
           if (!buf) {
-            _touchVoicePlaying = false;
+            _touchVoiceSource = null;
             _touchVoicePending = false;
             return;
           }
           // SFX 효과음과 겹치지 않도록 300ms 딜레이
           await new Promise(r => setTimeout(r, 300));
           if (ctx.state === 'suspended') {
-            _touchVoicePlaying = false;
+            _touchVoiceSource = null;
             _touchVoicePending = false;
             return;
           }
@@ -330,7 +330,8 @@ export function useSound(): UseSoundReturn {
           source.connect(gain);
           gain.connect(ctx.destination);
           source.onended = () => {
-            _touchVoicePlaying = false;
+            // source가 끝나면 null로 초기화
+            if (_touchVoiceSource === source) _touchVoiceSource = null;
             if (_touchVoicePending) {
               // 대기 중인 터치가 있으면 다음 음성 재생
               _touchVoicePending = false;
@@ -338,15 +339,18 @@ export function useSound(): UseSoundReturn {
             }
             // 대기 없으면 그냥 종료 (다음 터치 시까지 재생 안 함)
           };
-          _touchVoicePlaying = true;
+          // source를 먼저 할당한 뒤 start — 이 사이에 들어오는 터치는 pending으로 처리됨
+          _touchVoiceSource = source;
           source.start(0);
         } catch (err) {
           console.warn('[useSound] playVoice touch error:', err);
-          _touchVoicePlaying = false;
+          _touchVoiceSource = null;
           _touchVoicePending = false;
         }
       };
 
+      // 비동기 로드 중 동시 진입을 막기 위해 플래그 역할의 임시 객체 할당
+      _touchVoiceSource = {} as AudioBufferSourceNode;
       playTouchVoice();
       return;
     }
