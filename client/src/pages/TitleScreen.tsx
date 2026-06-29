@@ -159,7 +159,7 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
         </button>
 
         {/* 버전 표시 */}
-        <div className="text-white/50 text-xs">v1.2.0</div>
+        <div className="text-white/50 text-xs">v1.3.0</div>
       </div>
 
       {/* 애니메이션 정의 */}
