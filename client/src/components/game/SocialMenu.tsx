@@ -17,8 +17,9 @@ const TAB_LABELS: Record<Tab, string> = {
 export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const {
     ranking, visitors, friends, recommended, friendCoins,
-    syncing, lastSynced, uid, gameId, state,
+    syncing, lastSynced, uid, gameId, state, isAnonymous, isGoogleLinked,
     visitFriend, addFriendByGameId, removeFriend, copyMyGameId,
+    linkGoogleAccount, signInWithGoogleForRestore,
   } = useGame();
 
   const [tab, setTab] = useState<Tab>('friends');
@@ -28,6 +29,8 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const [visitingUid, setVisitingUid] = useState<string | null>(null);
   const [visitStatus, setVisitStatus] = useState<{ uid: string; msg: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [accountLoading, setAccountLoading] = useState<'link' | 'restore' | null>(null);
+  const [accountStatus, setAccountStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const myNickname = (state.nickname && state.nickname.trim())
     ? state.nickname.trim()
@@ -68,6 +71,26 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const handleCopy = async () => {
     const ok = await copyMyGameId();
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
+
+  const handleLinkGoogle = async () => {
+    setAccountLoading('link');
+    setAccountStatus(null);
+    const result = await linkGoogleAccount();
+    setAccountStatus({ type: result.success ? 'success' : 'error', msg: result.message });
+    setAccountLoading(null);
+  };
+
+  const handleRestoreGoogle = async () => {
+    const ok = window.confirm(
+      '기존 Google 계정의 클라우드 저장 데이터를 불러옵니다.\n현재 기기의 익명 진행도는 연결되지 않습니다. 계속할까요?'
+    );
+    if (!ok) return;
+    setAccountLoading('restore');
+    setAccountStatus(null);
+    const result = await signInWithGoogleForRestore();
+    setAccountStatus({ type: result.success ? 'success' : 'error', msg: result.message });
+    setAccountLoading(null);
   };
 
   // 배열 방어 처리 (Firebase 연결 전 undefined 대응)
@@ -302,6 +325,51 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
           {/* ── 내 정보 탭 ── */}
           {tab === 'sync' && (
             <div className="space-y-4">
+              {/* Google 계정 연결 */}
+              <div className="bg-emerald-50 rounded-2xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-emerald-500 font-medium">계정 백업 상태</p>
+                    <p className="text-sm font-bold text-gray-800 mt-1">
+                      {isGoogleLinked ? 'Google 연결됨' : '익명 플레이 중'}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-bold rounded-full px-2.5 py-1 ${
+                    isGoogleLinked ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {isGoogleLinked ? '안전' : '연결 필요'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Google 계정을 연결하면 현재 UID가 유지되어 진행도, 아이템, 구매 기록을 다른 기기에서 이어받을 수 있습니다.
+                </p>
+                {!isGoogleLinked && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleLinkGoogle}
+                      disabled={!!accountLoading}
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 text-white text-xs font-bold rounded-xl py-2.5 transition-colors"
+                    >
+                      {accountLoading === 'link' ? '연결 중...' : 'Google 계정 연결'}
+                    </button>
+                    {isAnonymous && (
+                      <button
+                        onClick={handleRestoreGoogle}
+                        disabled={!!accountLoading}
+                        className="w-full bg-white hover:bg-emerald-100 disabled:bg-gray-100 text-emerald-600 border border-emerald-200 text-xs font-bold rounded-xl py-2.5 transition-colors"
+                      >
+                        {accountLoading === 'restore' ? '로그인 중...' : '기존 Google 계정으로 복원'}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {accountStatus && (
+                  <p className={`text-xs whitespace-pre-line ${accountStatus.type === 'success' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {accountStatus.type === 'success' ? '✓ ' : '✗ '}{accountStatus.msg}
+                  </p>
+                )}
+              </div>
+
               {/* 동기화 상태 */}
               <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
                 <div className="flex items-center gap-2">
@@ -348,7 +416,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
               {/* 기능 안내 */}
               <div className="bg-blue-50 rounded-2xl p-4 space-y-1.5">
                 <p className="text-xs font-semibold text-blue-600 mb-2">☁️ 클라우드 저장 기능</p>
-                {['게임 플레이 5초 후 자동 저장', '기기 변경 시 자동 복원', '오프라인에서도 정상 동작', '글로벌 랭킹 자동 등록'].map((item) => (
+                {['게임 플레이 5초 후 자동 저장', '기기 변경 복원은 Google 연결 필요', '오프라인에서도 정상 동작', '글로벌 랭킹 자동 등록'].map((item) => (
                   <p key={item} className="text-xs text-blue-500 flex items-center gap-1.5">
                     <span>✓</span> {item}
                   </p>

@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "322708333010",
+    "firebase_url": "https://pocket-egg-default-rtdb.firebaseio.com",
+    "project_id": "pocket-egg",
+    "storage_bucket": "pocket-egg.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322708333010:android:dea81ce3248d83f923a80b",
+        "android_client_info": {
+          "package_name": "com.pocketegg.game"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "322708333010-c4mm6eucsnduh5dlrmf0aue4ojmc1f0e.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrwXCuwYeA9yPM79L4kMNFwAzTLHZLPiQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "322708333010-c4mm6eucsnduh5dlrmf0aue4ojmc1f0e.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -35,13 +35,13 @@ export const TUTORIALS: Record<string, TutorialData> = {
       {
         grade: '🏆 퍼펙트',
         condition: '20번 이하',
-        reward: '코인 30 + EXP 20',
+        reward: '코인 30 + EXP 20 + 🌈 40%',
         color: 'border-yellow-400 bg-yellow-50',
       },
       {
         grade: '⭐ 우수',
         condition: '21~30번',
-        reward: '코인 20 + EXP 17',
+        reward: '코인 20 + EXP 17 + ✨ 25%',
         color: 'border-blue-300 bg-blue-50',
       },
       {

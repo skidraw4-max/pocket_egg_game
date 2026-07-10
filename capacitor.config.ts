@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import '@capacitor-firebase/authentication';
 
 const config: CapacitorConfig = {
   appId: 'com.pocketegg.game',
@@ -27,6 +28,10 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#7c3aed',
+    },
+    FirebaseAuthentication: {
+      skipNativeAuth: true,
+      providers: ['google.com'],
     },
   },
   android: {

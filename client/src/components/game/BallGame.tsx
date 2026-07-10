@@ -172,8 +172,8 @@ export default function BallGame({ onClose }: BallGameProps) {
         <div className="bg-white/10 rounded-2xl px-5 py-3 mb-5 w-64">
           <div className="text-white/60 text-[10px] text-center mb-2">등급별 보상</div>
           {[
-            { label: '🏆 퍼펙트', cond: '200점+', reward: 'EXP 30 · 코인 20 · 힘 +5', drop: '🌈 30%' },
-            { label: '⭐ 우수',   cond: '120점+', reward: 'EXP 22 · 코인 12 · 힘 +4', drop: '✨ 15%' },
+            { label: '🏆 퍼펙트', cond: '200점+', reward: 'EXP 30 · 코인 20 · 힘 +5', drop: '🌈 40%' },
+            { label: '⭐ 우수',   cond: '120점+', reward: 'EXP 22 · 코인 12 · 힘 +4', drop: '✨ 25%' },
             { label: '✅ 일반',   cond: '60점+',  reward: 'EXP 15 · 코인 6 · 힘 +3',  drop: '' },
             { label: '🎀 완성',   cond: '~59점',  reward: 'EXP 10 · 코인 2 · 힘 +2',  drop: '' },
           ].map(g => (
@@ -283,7 +283,9 @@ export default function BallGame({ onClose }: BallGameProps) {
                 <div className="text-yellow-300 text-xs font-bold mb-1">✨ 아이템 드롭!</div>
                 <div className="text-3xl mb-1">{reward.dropItem.icon}</div>
                 <div className="text-white font-semibold text-sm">{reward.dropItem.name}</div>
-                <div className="text-white/60 text-[10px] mt-1">인벤토리에 추가되었어요</div>
+                <div className="text-white/60 text-[10px] mt-1">
+                  가방에서 확인하고 무지개 조각은 교환소에서 써요
+                </div>
               </>
             ) : (
               <>

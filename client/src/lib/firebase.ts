@@ -1,5 +1,18 @@
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, type User } from 'firebase/auth';
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  linkWithCredential,
+  signInWithCredential,
+  signInWithPopup,
+  linkWithPopup,
+  type AuthCredential,
+  type User,
+} from 'firebase/auth';
 import { getDatabase, ref, get, set, runTransaction } from 'firebase/database';
 
 const firebaseConfig = {
@@ -27,6 +40,103 @@ export async function ensureAnonymousAuth(): Promise<User> {
 /** 인증 상태 변경 구독 */
 export function onAuthChanged(cb: (user: User | null) => void) {
   return onAuthStateChanged(auth, cb);
+}
+
+export function isGoogleLinked(user: User | null = auth.currentUser): boolean {
+  return user?.providerData.some((provider) => provider.providerId === GoogleAuthProvider.PROVIDER_ID) ?? false;
+}
+
+function getAuthErrorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
+
+function getGoogleAuthFailureMessage(error: unknown): string {
+  const code = getAuthErrorCode(error);
+  if (code === 'auth/credential-already-in-use' || code === 'auth/account-exists-with-different-credential') {
+    return '이미 다른 저장 데이터에 연결된 Google 계정입니다. 현재 익명 데이터는 덮어쓰지 않았습니다. 기존 데이터를 불러오려면 아래의 "기존 Google 계정으로 복원"을 사용해 주세요.';
+  }
+  if (code === 'auth/provider-already-linked') {
+    return '이미 Google 계정이 연결되어 있습니다.';
+  }
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+    return 'Google 로그인 창이 닫혀 연결을 취소했습니다.';
+  }
+  if (code === 'auth/network-request-failed') {
+    return '네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
+  }
+  return 'Google 계정 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+}
+
+async function getNativeGoogleCredential(): Promise<AuthCredential> {
+  const result = await FirebaseAuthentication.signInWithGoogle({
+    skipNativeAuth: true,
+    scopes: ['profile', 'email'],
+  });
+  const idToken = result.credential?.idToken ?? null;
+  const accessToken = result.credential?.accessToken ?? null;
+  if (!idToken && !accessToken) {
+    throw new Error('Google 인증 토큰을 받지 못했습니다.');
+  }
+  return GoogleAuthProvider.credential(idToken, accessToken);
+}
+
+export interface GoogleAccountResult {
+  success: boolean;
+  message: string;
+  uid?: string;
+}
+
+/**
+ * 현재 익명 계정에 Google 계정을 연결합니다.
+ * 성공 시 Firebase UID가 유지되어 players/{uid}/gameState를 그대로 사용합니다.
+ */
+export async function linkGoogleAccount(): Promise<GoogleAccountResult> {
+  try {
+    const user = auth.currentUser ?? await ensureAnonymousAuth();
+    if (isGoogleLinked(user)) {
+      return { success: true, message: '이미 Google 계정이 연결되어 있습니다.', uid: user.uid };
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      const credential = await getNativeGoogleCredential();
+      const linked = await linkWithCredential(user, credential);
+      return { success: true, message: 'Google 계정이 연결되었습니다. 이제 다른 기기에서도 이어서 플레이할 수 있습니다.', uid: linked.user.uid };
+    }
+
+    const provider = new GoogleAuthProvider();
+    provider.addScope('profile');
+    provider.addScope('email');
+    const linked = await linkWithPopup(user, provider);
+    return { success: true, message: 'Google 계정이 연결되었습니다. 이제 다른 기기에서도 이어서 플레이할 수 있습니다.', uid: linked.user.uid };
+  } catch (error) {
+    console.warn('[Firebase] linkGoogleAccount 실패:', error);
+    return { success: false, message: getGoogleAuthFailureMessage(error) };
+  }
+}
+
+/**
+ * 기존 Google 계정으로 로그인해 같은 UID의 클라우드 저장 데이터를 불러오도록 전환합니다.
+ * 익명 계정 업그레이드 실패 시에만 사용자가 명시적으로 선택하는 복원 흐름입니다.
+ */
+export async function signInWithGoogleForRestore(): Promise<GoogleAccountResult> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const credential = await getNativeGoogleCredential();
+      const signedIn = await signInWithCredential(auth, credential);
+      return { success: true, message: 'Google 계정으로 로그인했습니다. 클라우드 저장 데이터를 불러오는 중입니다.', uid: signedIn.user.uid };
+    }
+
+    const provider = new GoogleAuthProvider();
+    provider.addScope('profile');
+    provider.addScope('email');
+    const signedIn = await signInWithPopup(auth, provider);
+    return { success: true, message: 'Google 계정으로 로그인했습니다. 클라우드 저장 데이터를 불러오는 중입니다.', uid: signedIn.user.uid };
+  } catch (error) {
+    console.warn('[Firebase] signInWithGoogleForRestore 실패:', error);
+    return { success: false, message: getGoogleAuthFailureMessage(error) };
+  }
 }
 
 /**

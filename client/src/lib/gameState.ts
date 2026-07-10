@@ -44,6 +44,7 @@ export interface GameState {
   status: PetStatus;
   coins: number;
   gems: number;
+  iapPurchases: Record<string, IapPurchaseRecord>;
   inventory: InventoryItem[];
   room: RoomState;
   collection: string[];
@@ -59,6 +60,13 @@ export interface GameState {
   ownedWallpapers: string[];               // 구매한 배경 ID 목록
   eggColor: string | null;                 // 선택형 알 색상 ID (최초 선택)
   gachaEgg: string | null;                 // 가챠형 알 ID (뉴게임+ 뽑기)
+}
+
+export interface IapPurchaseRecord {
+  productId: string;
+  amount: number;
+  grantedAt: number;
+  quantity: number;
 }
 
 export interface InventoryItem {
@@ -202,6 +210,7 @@ export const INITIAL_GAME_STATE: GameState = {
   status: INITIAL_PET_STATUS,
   coins: 500,
   gems: 10,
+  iapPurchases: {},
   inventory: [
     {
       id: 'food_basic',
@@ -622,9 +631,101 @@ export interface ShopItemDef {
   wallpaperUrl?: string;
 }
 
+export type FragmentExchangeReward =
+  | { type: 'inventory'; item: Omit<InventoryItem, 'quantity'>; quantity: number }
+  | { type: 'decor'; decorId: string }
+  | { type: 'gachaEgg'; eggId: 'rainbow_g'; traitBonus: GrowthTraits };
+
+export interface FragmentExchangeDef {
+  id: string;
+  name: string;
+  icon: string;
+  cost: number;
+  description: string;
+  rewardLabel: string;
+  reward: FragmentExchangeReward;
+}
+
+export const RAINBOW_FRAGMENT_ID = 'fragment_rainbow';
+
+export const RAINBOW_FRAGMENT_EXCHANGES: FragmentExchangeDef[] = [
+  {
+    id: 'rainbow_snack',
+    name: '무지개 간식',
+    icon: '🍰',
+    cost: 5,
+    description: '배고픔과 기분을 함께 채워주는 특별 간식이에요.',
+    rewardLabel: '무지개 간식 ×1',
+    reward: {
+      type: 'inventory',
+      quantity: 1,
+      item: {
+        id: 'food_rainbow_snack',
+        name: '무지개 간식',
+        type: 'food',
+        icon: '🍰',
+        effect: { hunger: 18, mood: 12 },
+        traitBonus: { charm: 2, vitality: 2 },
+        description: '무지개 조각으로 만든 달콤한 간식이에요.',
+      },
+    },
+  },
+  {
+    id: 'rainbow_ribbon_toy',
+    name: '리본 장난감',
+    icon: '🎀',
+    cost: 10,
+    description: '매력을 길러주는 상점 인기 장난감이에요.',
+    rewardLabel: '리본 장난감 ×1',
+    reward: {
+      type: 'inventory',
+      quantity: 1,
+      item: {
+        id: 'toy_ribbon',
+        name: '리본 장난감',
+        type: 'toy',
+        icon: '🎀',
+        effect: { mood: 25, fatigue: 10 },
+        traitBonus: { charm: 5 },
+        description: '리본 장난감으로 매력이 올라가요!',
+      },
+    },
+  },
+  {
+    id: 'rainbow_window',
+    name: '무지개 창문',
+    icon: '🌈',
+    cost: 20,
+    description: '방에 무지개빛을 더하는 특별 가구예요.',
+    rewardLabel: '무지개 창문 가구',
+    reward: { type: 'decor', decorId: 'decor_rainbow' },
+  },
+  {
+    id: 'rainbow_egg_blessing',
+    name: '무지개알의 축복',
+    icon: '🥚',
+    cost: 30,
+    description: '현재 모험에 전설 무지개알의 성향 보너스를 부여해요.',
+    rewardLabel: '무지개알 효과 적용',
+    reward: {
+      type: 'gachaEgg',
+      eggId: 'rainbow_g',
+      traitBonus: { power: 20, intelligence: 20, charm: 20, vitality: 20 },
+    },
+  },
+];
+
 export type PurchaseResult =
   | { success: true; newState: GameState }
   | { success: false; reason: 'insufficient_funds' | 'already_owned' };
+
+export type GrantPurchasedGemsResult =
+  | { success: true; newState: GameState }
+  | { success: false; reason: 'duplicate_purchase' | 'invalid_amount' };
+
+export type FragmentExchangeResult =
+  | { success: true; newState: GameState; exchange: FragmentExchangeDef }
+  | { success: false; reason: 'not_found' | 'insufficient_fragments' | 'already_owned'; exchange?: FragmentExchangeDef };
 
 export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResult {
   // 재화 확인
@@ -721,6 +822,134 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
       coins: newCoins,
       gems: newGems,
       friendCoins: newFriendCoins,
+      lastSaveTime: Date.now(),
+    },
+  };
+}
+
+export function grantPurchasedGems(
+  state: GameState,
+  purchaseKey: string,
+  productId: string,
+  amount: number,
+  quantity = 1
+): GrantPurchasedGemsResult {
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { success: false, reason: 'invalid_amount' };
+  }
+
+  const purchases = state.iapPurchases ?? {};
+  if (purchases[purchaseKey]) {
+    return { success: false, reason: 'duplicate_purchase' };
+  }
+
+  return {
+    success: true,
+    newState: {
+      ...state,
+      gems: state.gems + amount,
+      iapPurchases: {
+        ...purchases,
+        [purchaseKey]: {
+          productId,
+          amount,
+          quantity,
+          grantedAt: Date.now(),
+        },
+      },
+      lastSaveTime: Date.now(),
+    },
+  };
+}
+
+function addInventoryItem(
+  inventory: InventoryItem[],
+  item: Omit<InventoryItem, 'quantity'>,
+  quantity: number
+): InventoryItem[] {
+  const existingIdx = inventory.findIndex(i => i.id === item.id);
+  if (existingIdx >= 0) {
+    return inventory.map((inv, idx) =>
+      idx === existingIdx ? { ...inv, quantity: inv.quantity + quantity } : inv
+    );
+  }
+  return [...inventory, { ...item, quantity }];
+}
+
+function removeInventoryQuantity(inventory: InventoryItem[], itemId: string, quantity: number): InventoryItem[] {
+  return inventory
+    .map(item => item.id === itemId ? { ...item, quantity: item.quantity - quantity } : item)
+    .filter(item => item.quantity > 0);
+}
+
+export function getInventoryQuantity(state: GameState, itemId: string): number {
+  return state.inventory.find(item => item.id === itemId)?.quantity ?? 0;
+}
+
+export function exchangeRainbowFragments(state: GameState, exchangeId: string): FragmentExchangeResult {
+  const exchange = RAINBOW_FRAGMENT_EXCHANGES.find(item => item.id === exchangeId);
+  if (!exchange) return { success: false, reason: 'not_found' };
+
+  const fragmentQty = getInventoryQuantity(state, RAINBOW_FRAGMENT_ID);
+  if (fragmentQty < exchange.cost) {
+    return { success: false, reason: 'insufficient_fragments', exchange };
+  }
+
+  const inventoryAfterCost = removeInventoryQuantity(state.inventory, RAINBOW_FRAGMENT_ID, exchange.cost);
+  const reward = exchange.reward;
+
+  if (reward.type === 'inventory') {
+    return {
+      success: true,
+      exchange,
+      newState: {
+        ...state,
+        inventory: addInventoryItem(inventoryAfterCost, reward.item, reward.quantity),
+        lastSaveTime: Date.now(),
+      },
+    };
+  }
+
+  if (reward.type === 'decor') {
+    if ((state.room?.furniture ?? []).includes(reward.decorId)) {
+      return { success: false, reason: 'already_owned', exchange };
+    }
+
+    return {
+      success: true,
+      exchange,
+      newState: {
+        ...state,
+        inventory: inventoryAfterCost,
+        room: {
+          ...state.room,
+          furniture: [...(state.room?.furniture ?? []), reward.decorId],
+        },
+        lastSaveTime: Date.now(),
+      },
+    };
+  }
+
+  if (state.gachaEgg === reward.eggId) {
+    return { success: false, reason: 'already_owned', exchange };
+  }
+
+  return {
+    success: true,
+    exchange,
+    newState: {
+      ...state,
+      inventory: inventoryAfterCost,
+      gachaEgg: reward.eggId,
+      pet: {
+        ...state.pet,
+        traits: {
+          power: state.pet.traits.power + reward.traitBonus.power,
+          intelligence: state.pet.traits.intelligence + reward.traitBonus.intelligence,
+          charm: state.pet.traits.charm + reward.traitBonus.charm,
+          vitality: state.pet.traits.vitality + reward.traitBonus.vitality,
+        },
+      },
       lastSaveTime: Date.now(),
     },
   };
@@ -911,14 +1140,6 @@ export function applyCollectionReward(state: GameState, species: string): GameSt
   };
 }
 
-/** 퍼즐 점수 보상 (이동 수에 따라 차등) */
-export function calcPuzzleReward(moves: number): { coins: number; exp: number } {
-  if (moves <= 20)      return { coins: 30, exp: 20 }; // 퍼펙트
-  if (moves <= 30)      return { coins: 20, exp: 17 }; // 우수
-  if (moves <= 50)      return { coins: 10, exp: 15 }; // 일반
-  return                       { coins: 5,  exp: 12 }; // 완성
-}
-
 // ===== 저장/불러오기 =====
 
 const SAVE_KEY = 'pocket_egg_save';
@@ -979,6 +1200,10 @@ export function loadGame(): GameState | null {
     if (!Array.isArray(data.ownedWallpapers)) {
       data.ownedWallpapers = [];
     }
+    // Google Play 결제 지급 기록 마이그레이션
+    if (!data.iapPurchases || typeof data.iapPurchases !== 'object' || Array.isArray(data.iapPurchases)) {
+      data.iapPurchases = {};
+    }
     // eggColor/gachaEgg 필드 마이그레이션 (구버전 저장 데이터 대응)
     if (!('eggColor' in data)) {
       (data as GameState).eggColor = null;
@@ -996,16 +1221,114 @@ export function resetGame(): void {
   localStorage.removeItem(SAVE_KEY);
 }
 
-// ===== 무지개공놀이 보상 시스템 (방안 B + C 조합) =====
+// ===== 미니게임 조각 드롭 =====
 
-export type BallGameGrade = 'perfect' | 'great' | 'normal' | 'complete';
+export const FRAGMENT_DROP_RATES = {
+  rainbow: 0.40,
+  sparkle: 0.25,
+} as const;
 
-export interface BallGameDropItem {
+export interface MiniGameDropItem {
   id: string;
   name: string;
   icon: string;
   dropped: boolean; // 실제 드롭 여부 (확률 결과)
 }
+
+function rollFragmentDrop(kind: keyof typeof FRAGMENT_DROP_RATES): MiniGameDropItem {
+  const isRainbow = kind === 'rainbow';
+  return {
+    id: isRainbow ? RAINBOW_FRAGMENT_ID : 'fragment_sparkle',
+    name: isRainbow ? '무지개 조각' : '반짝 조각',
+    icon: isRainbow ? '🌈' : '✨',
+    dropped: Math.random() < FRAGMENT_DROP_RATES[kind],
+  };
+}
+
+function addDroppedItemToInventory(inventory: InventoryItem[], dropItem: MiniGameDropItem | null): InventoryItem[] {
+  if (!dropItem?.dropped) return inventory;
+
+  const newInventory = [...inventory];
+  const existingIdx = newInventory.findIndex(i => i.id === dropItem.id);
+  if (existingIdx >= 0) {
+    newInventory[existingIdx] = {
+      ...newInventory[existingIdx],
+      quantity: newInventory[existingIdx].quantity + 1,
+    };
+    return newInventory;
+  }
+
+  const isRainbow = dropItem.id === RAINBOW_FRAGMENT_ID;
+  newInventory.push({
+    id: dropItem.id,
+    name: dropItem.name,
+    type: 'special',
+    quantity: 1,
+    icon: dropItem.icon,
+    effect: {},
+    description: isRainbow
+      ? '상위 미니게임 보상으로 얻은 희귀 조각이에요. 교환소에서 특별한 보상으로 바꿀 수 있어요!'
+      : '우수한 미니게임 결과로 얻은 반짝이는 조각이에요.',
+  });
+
+  return newInventory;
+}
+
+// ===== 별퍼즐 보상 시스템 =====
+
+export type PuzzleGameGrade = 'perfect' | 'great' | 'normal' | 'complete';
+
+export interface PuzzleGameRewardResult {
+  grade: PuzzleGameGrade;
+  coins: number;
+  exp: number;
+  dropItem: MiniGameDropItem | null;
+}
+
+/** 퍼즐 점수 보상 (이동 수에 따라 차등) */
+export function calcPuzzleReward(moves: number): PuzzleGameRewardResult {
+  if (moves <= 20) {
+    return { grade: 'perfect', coins: 30, exp: 20, dropItem: rollFragmentDrop('rainbow') };
+  }
+  if (moves <= 30) {
+    return { grade: 'great', coins: 20, exp: 17, dropItem: rollFragmentDrop('sparkle') };
+  }
+  if (moves <= 50) {
+    return { grade: 'normal', coins: 10, exp: 15, dropItem: null };
+  }
+  return { grade: 'complete', coins: 5, exp: 12, dropItem: null };
+}
+
+/**
+ * 별퍼즐 보상을 게임 상태에 적용
+ * - 별퍼즐 장난감 효과를 반영하고, 이동 수 등급 보상을 실제 지급
+ * - 드롭 아이템은 인벤토리에 추가 (quantity +1)
+ */
+export function applyPuzzleReward(state: GameState, reward: PuzzleGameRewardResult): GameState {
+  const item = state.inventory.find(i => i.id === 'toy_puzzle' && i.type === 'toy');
+  const newStatus = item ? applyEffect(state.status, item.effect) : state.status;
+  const newTraits = item?.traitBonus
+    ? applyTraitBonus(state.pet.traits, item.traitBonus)
+    : state.pet.traits;
+
+  return {
+    ...state,
+    status: newStatus,
+    pet: {
+      ...state.pet,
+      traits: newTraits,
+      exp: state.pet.exp + reward.exp,
+      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+    },
+    coins: state.coins + reward.coins,
+    inventory: addDroppedItemToInventory(state.inventory, reward.dropItem),
+    lastSaveTime: Date.now(),
+  };
+}
+
+// ===== 무지개공놀이 보상 시스템 (방안 B + C 조합) =====
+
+export type BallGameGrade = 'perfect' | 'great' | 'normal' | 'complete';
 
 export interface BallGameRewardResult {
   grade: BallGameGrade;
@@ -1014,7 +1337,7 @@ export interface BallGameRewardResult {
   powerBonus: number;   // 힘 성향 보너스
   comboExpBonus: number; // 콤보 보너스 EXP (방안 C)
   totalExp: number;      // exp + comboExpBonus
-  dropItem: BallGameDropItem | null;
+  dropItem: MiniGameDropItem | null;
 }
 
 /**
@@ -1028,20 +1351,18 @@ export function calcBallGameReward(score: number, maxCombo: number): BallGameRew
   let exp: number;
   let coins: number;
   let powerBonus: number;
-  let dropItem: BallGameDropItem | null = null;
+  let dropItem: MiniGameDropItem | null = null;
 
   if (score >= 200) {
     grade = 'perfect';
     exp = 30; coins = 20; powerBonus = 5;
-    // 무지개 조각 30% 확률 드롭
-    const dropped = Math.random() < 0.30;
-    dropItem = { id: 'fragment_rainbow', name: '무지개 조각', icon: '🌈', dropped };
+    // 무지개 조각 40% 확률 드롭
+    dropItem = rollFragmentDrop('rainbow');
   } else if (score >= 120) {
     grade = 'great';
     exp = 22; coins = 12; powerBonus = 4;
-    // 반짝 조각 15% 확률 드롭
-    const dropped = Math.random() < 0.15;
-    dropItem = { id: 'fragment_sparkle', name: '반짝 조각', icon: '✨', dropped };
+    // 반짝 조각 25% 확률 드롭
+    dropItem = rollFragmentDrop('sparkle');
   } else if (score >= 60) {
     grade = 'normal';
     exp = 15; coins = 6; powerBonus = 3;
@@ -1087,33 +1408,6 @@ export function applyBallGameReward(state: GameState, reward: BallGameRewardResu
     power: state.pet.traits.power + reward.powerBonus,
   };
 
-  // 드롭 아이템 인벤토리 처리
-  let newInventory = [...state.inventory];
-  if (reward.dropItem?.dropped) {
-    const existingIdx = newInventory.findIndex(i => i.id === reward.dropItem!.id);
-    if (existingIdx >= 0) {
-      // 이미 있으면 수량 +1
-      newInventory[existingIdx] = {
-        ...newInventory[existingIdx],
-        quantity: newInventory[existingIdx].quantity + 1,
-      };
-    } else {
-      // 신규 추가
-      const isRainbow = reward.dropItem.id === 'fragment_rainbow';
-      newInventory.push({
-        id: reward.dropItem.id,
-        name: reward.dropItem.name,
-        type: 'special',
-        quantity: 1,
-        icon: reward.dropItem.icon,
-        effect: {},
-        description: isRainbow
-          ? '퍼펙트 공놀이로 얻은 희귀 조각이에요. 나중에 특별한 용도로 쓰일 거예요!'
-          : '우수한 공놀이로 얻은 반짝이는 조각이에요.',
-      });
-    }
-  }
-
   return {
     ...state,
     status: newStatus,
@@ -1124,7 +1418,7 @@ export function applyBallGameReward(state: GameState, reward: BallGameRewardResu
       intimacy: clamp(state.pet.intimacy + 2, 0, 100),
     },
     coins: state.coins + reward.coins,
-    inventory: newInventory,
+    inventory: addDroppedItemToInventory(state.inventory, reward.dropItem),
     lastSaveTime: Date.now(),
   };
 }

@@ -3,14 +3,38 @@
  * Cozy Nursery: 아이템 구매 및 방 꾸미기
  */
 import { useGame } from '@/contexts/GameContext';
-import { useState } from 'react';
-import type { ShopItemDef } from '@/lib/gameState';
+import { useEffect, useRef, useState } from 'react';
+import {
+  RAINBOW_FRAGMENT_EXCHANGES,
+  RAINBOW_FRAGMENT_ID,
+  getInventoryQuantity,
+  type FragmentExchangeDef,
+  type InventoryItem,
+  type ShopItemDef,
+} from '@/lib/gameState';
+import {
+  getBillingError,
+  getDiamondCatalog,
+  initGooglePlayBilling,
+  isGooglePlayBillingAvailable,
+  purchaseDiamondProduct,
+  removeGooglePlayBillingListener,
+  type DiamondCatalogProduct,
+  type DiamondPurchaseEvent,
+} from '@/lib/googlePlayBilling';
 
 interface ShopMenuProps {
   onClose: () => void;
 }
 
-type TabType = 'food' | 'toy' | 'decor' | 'wallpaper' | 'social';
+type TabType = 'diamond' | 'food' | 'toy' | 'decor' | 'wallpaper' | 'social' | 'inventory' | 'exchange';
+type InventorySectionType = Extract<InventoryItem['type'], 'food' | 'toy' | 'special'>;
+
+const INVENTORY_SECTIONS: { id: InventorySectionType; label: string; icon: string; emptyText: string }[] = [
+  { id: 'food', label: '음식', icon: '🍖', emptyText: '보유한 음식이 아직 없어요.' },
+  { id: 'toy', label: '장난감', icon: '🎾', emptyText: '보유한 장난감이 아직 없어요.' },
+  { id: 'special', label: '특별/조각', icon: '✨', emptyText: '특별 아이템이나 조각이 아직 없어요.' },
+];
 
 /** 배경 아이템 카탈로그 */
 const WALLPAPER_ITEMS: ShopItemDef[] = [
@@ -305,24 +329,94 @@ interface Toast {
 }
 
 export default function ShopMenu({ onClose }: ShopMenuProps) {
-  const { state, purchase } = useGame();
-  const [activeTab, setActiveTab] = useState<TabType>('food');
+  const { state, purchase, exchangeRainbow, grantIapGems, uid, gameId } = useGame();
+  const [activeTab, setActiveTab] = useState<TabType>('diamond');
   const [toast, setToast] = useState<Toast | null>(null);
   const [previewWallpaper, setPreviewWallpaper] = useState<string | null>(null);
+  const [diamondProducts, setDiamondProducts] = useState<DiamondCatalogProduct[]>(() => getDiamondCatalog());
+  const [billingStatus, setBillingStatus] = useState<'unsupported' | 'initializing' | 'ready' | 'error'>(
+    () => (isGooglePlayBillingAvailable() ? 'initializing' : 'unsupported')
+  );
+  const [billingMessage, setBillingMessage] = useState<string | null>(() =>
+    isGooglePlayBillingAvailable() ? null : '웹에서는 Google Play 결제를 사용할 수 없어요. Android 앱에서 이용해 주세요.'
+  );
+  const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
+  const grantIapGemsRef = useRef(grantIapGems);
 
+  const isDiamondTab = activeTab === 'diamond';
   const isSocialTab = activeTab === 'social';
   const isWallpaperTab = activeTab === 'wallpaper';
+  const isInventoryTab = activeTab === 'inventory';
+  const isExchangeTab = activeTab === 'exchange';
+  const rainbowFragmentQty = getInventoryQuantity(state, RAINBOW_FRAGMENT_ID);
+  const inventoryItems = state.inventory.filter(item => item.quantity > 0);
+  const inventoryTotalQty = inventoryItems.reduce((total, item) => total + item.quantity, 0);
+  const hasInventoryItems = inventoryTotalQty > 0;
 
   const currentItems = isSocialTab
     ? SOCIAL_ITEMS
     : isWallpaperTab
       ? WALLPAPER_ITEMS
+      : isDiamondTab || isExchangeTab || isInventoryTab
+        ? []
       : SHOP_ITEMS.filter(item => item.type === activeTab);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2000);
   };
+
+  useEffect(() => {
+    grantIapGemsRef.current = grantIapGems;
+  }, [grantIapGems]);
+
+  useEffect(() => {
+    if (!isGooglePlayBillingAvailable()) {
+      setBillingStatus('unsupported');
+      setBillingMessage('웹에서는 Google Play 결제를 사용할 수 없어요. Android 앱에서 이용해 주세요.');
+      return;
+    }
+
+    let mounted = true;
+    const handleApprovedPurchase = (event: DiamondPurchaseEvent) => {
+      const result = grantIapGemsRef.current(
+        event.purchaseKey,
+        event.productId,
+        event.amount,
+        event.quantity
+      );
+
+      if (result.success) {
+        showToast(`다이아 ${event.amount.toLocaleString()}개가 지급됐어요!`, 'success');
+      } else if (result.reason === 'duplicate_purchase') {
+        showToast('이미 지급 처리된 구매예요.', 'info');
+      } else {
+        showToast('결제는 승인됐지만 다이아 지급에 실패했어요. 고객센터 확인이 필요해요.', 'error');
+      }
+    };
+
+    setBillingStatus('initializing');
+    setBillingMessage('Google Play 상품 정보를 불러오는 중이에요.');
+
+    initGooglePlayBilling(handleApprovedPurchase)
+      .then(products => {
+        if (!mounted) return;
+        setDiamondProducts(products);
+        setBillingStatus('ready');
+        setBillingMessage(null);
+      })
+      .catch(error => {
+        if (!mounted) return;
+        setDiamondProducts(getDiamondCatalog());
+        setBillingStatus('error');
+        setBillingMessage(getBillingError() ?? (error instanceof Error ? error.message : 'Play 결제 초기화에 실패했어요.'));
+      });
+
+    return () => {
+      mounted = false;
+      removeGooglePlayBillingListener(handleApprovedPurchase);
+    };
+  }, []);
 
   const handlePurchase = (item: ShopItemDef) => {
     const result = purchase(item);
@@ -342,6 +436,48 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     }
 
     showToast(`${item.name} 구매 완료! 배경이 적용됐어요 🎉`, 'success');
+  };
+
+  const handleExchange = (exchange: FragmentExchangeDef) => {
+    const result = exchangeRainbow(exchange.id);
+
+    if (!result.success) {
+      if (result.reason === 'insufficient_fragments') {
+        showToast(`무지개 조각이 부족해요! ${exchange.cost}개가 필요해요.`, 'error');
+      } else if (result.reason === 'already_owned') {
+        showToast('이미 보유 중인 특별 보상이에요!', 'info');
+      } else {
+        showToast('교환할 수 없는 보상이에요.', 'error');
+      }
+      return;
+    }
+
+    showToast(`${exchange.rewardLabel} 교환 완료!`, 'success');
+  };
+
+  const handleDiamondPurchase = async (product: DiamondCatalogProduct) => {
+    if (!isGooglePlayBillingAvailable()) {
+      showToast('Android 앱에서만 Google Play 결제를 사용할 수 있어요.', 'info');
+      return;
+    }
+    if (billingStatus !== 'ready' || !product.canPurchase) {
+      showToast('Play Console 상품 정보를 아직 확인할 수 없어요.', 'error');
+      return;
+    }
+
+    setPurchasingProductId(product.productId);
+    try {
+      const result = await purchaseDiamondProduct(product.productId, uid ?? gameId ?? null);
+      setDiamondProducts(getDiamondCatalog());
+
+      if (!result.success) {
+        showToast(result.message, result.reason === 'cancelled' ? 'info' : 'error');
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '구매 요청 중 오류가 발생했어요.', 'error');
+    } finally {
+      setPurchasingProductId(null);
+    }
   };
 
   const isOwned = (item: ShopItemDef) => {
@@ -368,12 +504,29 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     return state.inventory.find(i => i.id === itemId)?.quantity ?? 0;
   };
 
+  const getInventorySectionItems = (type: InventorySectionType) => {
+    return inventoryItems.filter(item => item.type === type);
+  };
+
+  const isExchangeOwned = (exchange: FragmentExchangeDef) => {
+    if (exchange.reward.type === 'decor') {
+      return (state.room?.furniture ?? []).includes(exchange.reward.decorId);
+    }
+    if (exchange.reward.type === 'gachaEgg') {
+      return state.gachaEgg === exchange.reward.eggId;
+    }
+    return false;
+  };
+
   const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: 'diamond', label: '다이아', icon: '💎' },
     { id: 'food', label: '먹이', icon: '🍖' },
     { id: 'toy', label: '장난감', icon: '🎾' },
     { id: 'decor', label: '가구', icon: '🏠' },
     { id: 'wallpaper', label: '배경', icon: '🖼️' },
     { id: 'social', label: '소셜', icon: '🤝' },
+    { id: 'inventory', label: '가방', icon: '🎒' },
+    { id: 'exchange', label: '교환소', icon: '🌈' },
   ];
 
   const toastColors: Record<ToastType, string> = {
@@ -402,6 +555,16 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-warm-brown">🪙 {state.coins}</span>
             <span className="text-sm font-semibold text-warm-brown">💎 {state.gems}</span>
+            {activeTab === 'inventory' && (
+              <span className="text-sm font-semibold text-warm-brown bg-cream px-2 py-0.5 rounded-full">
+                🎒 {inventoryTotalQty}
+              </span>
+            )}
+            {activeTab === 'exchange' && (
+              <span className="text-sm font-semibold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">
+                🌈 {rainbowFragmentQty}
+              </span>
+            )}
             {activeTab === 'social' && (
               <span className="text-sm font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
                 🤝 {(state.friendCoins ?? 0).toLocaleString()}
@@ -424,8 +587,14 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 activeTab === tab.id
-                  ? tab.id === 'social'
+                  ? tab.id === 'diamond'
+                    ? 'bg-gradient-to-r from-sky-400 to-violet-400 text-white'
+                    : tab.id === 'social'
                     ? 'bg-purple-500 text-white'
+                    : tab.id === 'inventory'
+                      ? 'bg-mint text-warm-brown'
+                    : tab.id === 'exchange'
+                      ? 'bg-gradient-to-r from-pink-400 to-amber-300 text-white'
                     : tab.id === 'wallpaper'
                       ? 'bg-[oklch(0.75_0.12_280)] text-white'
                       : 'bg-peach text-white'
@@ -437,6 +606,25 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
             </button>
           ))}
         </div>
+
+        {/* 다이아 탭 안내 배너 */}
+        {isDiamondTab && (
+          <div className="mb-3 bg-sky-50 border border-sky-100 rounded-2xl px-3 py-2.5 flex items-center gap-2">
+            <span className="text-lg">💎</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-sky-700">
+                {billingStatus === 'ready' ? 'Google Play 다이아 충전' : '다이아(젬) 충전 안내'}
+              </p>
+              <p className="text-xs text-sky-500">
+                {billingMessage ??
+                  '구매 완료 후 다이아는 게임 젬으로 즉시 저장돼요. 서버 영수증 검증은 출시 전 추가가 필요합니다.'}
+              </p>
+            </div>
+            <span className="text-sm font-bold text-sky-700 whitespace-nowrap">
+              보유 {state.gems.toLocaleString()}개
+            </span>
+          </div>
+        )}
 
         {/* 소셜 탭 안내 배너 */}
         {isSocialTab && (
@@ -467,8 +655,230 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
           </div>
         )}
 
-        {/* 배경 탭: 이미지 미리보기 카드 */}
-        {isWallpaperTab ? (
+        {/* 가방 탭 안내 배너 */}
+        {isInventoryTab && (
+          <div className="mb-3 bg-cream border border-border rounded-2xl px-3 py-2.5 flex items-center gap-2">
+            <span className="text-lg">🎒</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-warm-brown">내 가방</p>
+              <p className="text-xs text-sub-brown">
+                음식, 장난감, 특별 조각을 한곳에서 확인해요.
+              </p>
+            </div>
+            <span className="text-sm font-bold text-warm-brown whitespace-nowrap">
+              총 {inventoryTotalQty}개
+            </span>
+          </div>
+        )}
+
+        {/* 무지개 조각 교환소 안내 배너 */}
+        {isExchangeTab && (
+          <div className="mb-3 bg-gradient-to-r from-pink-50 via-amber-50 to-sky-50 border border-pink-100 rounded-2xl px-3 py-2.5 flex items-center gap-2">
+            <span className="text-lg">🌈</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-pink-600">무지개 조각 교환소</p>
+              <p className="text-xs text-sub-brown">
+                무지개공놀이 보상 조각을 모아 특별 아이템으로 바꿔요.
+              </p>
+            </div>
+            <span className="text-sm font-bold text-pink-600 whitespace-nowrap">
+              보유 {rainbowFragmentQty}개
+            </span>
+          </div>
+        )}
+
+        {/* 가방 탭: 보유 아이템 목록 */}
+        {isDiamondTab ? (
+          <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+            <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/70 px-3 py-2.5">
+              <p className="text-xs font-bold text-sky-700">
+                {billingStatus === 'ready' ? '실제 Google Play 결제가 연결됐어요' : 'Android 앱에서 결제를 사용할 수 있어요'}
+              </p>
+              <p className="text-[11px] text-sky-500 mt-0.5">
+                웹에서는 구매 버튼이 비활성화됩니다. 실제 출시 전에는 Play Console 상품 활성화, 내부 테스트, 서버 영수증 검증을 꼭 완료하세요.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {diamondProducts.map(product => {
+                const isPurchasing = purchasingProductId === product.productId;
+                const disabled =
+                  billingStatus !== 'ready' ||
+                  !product.canPurchase ||
+                  Boolean(purchasingProductId && !isPurchasing);
+
+                return (
+                  <div
+                    key={product.productId}
+                    className="relative flex flex-col gap-2 rounded-2xl border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-3 shadow-sm"
+                  >
+                    <span className="absolute top-2 right-2 text-[9px] bg-sky-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      {product.badge}
+                    </span>
+
+                    <div className="flex items-center gap-2 pr-10">
+                      <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-2xl shadow-sm">
+                        💎
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-warm-brown truncate">{product.name}</p>
+                        <p className="text-[10px] font-semibold text-sky-600">
+                          {product.amount.toLocaleString()} 다이아(젬)
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-sub-brown min-h-[2.5rem]">{product.description}</p>
+
+                    <div className="rounded-2xl bg-white/80 px-2.5 py-2">
+                      <p className="text-[10px] text-sub-brown">Play productId</p>
+                      <p className="text-xs font-bold text-sky-700">{product.productId}</p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDiamondPurchase(product)}
+                      disabled={disabled}
+                      className={`w-full rounded-2xl px-3 py-2 text-xs font-bold transition-all ${
+                        disabled
+                          ? 'bg-muted text-sub-brown cursor-not-allowed'
+                          : 'bg-gradient-to-r from-sky-400 to-violet-400 text-white active:scale-95'
+                      }`}
+                      aria-label={`${product.name} ${product.price} Google Play 결제`}
+                    >
+                      {isPurchasing
+                        ? '구매 진행 중...'
+                        : billingStatus === 'ready' && product.canPurchase
+                          ? `${product.price} · 구매하기`
+                          : `${product.price} · Android 앱에서 활성화`}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : isInventoryTab ? (
+          <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+            {!hasInventoryItems ? (
+              <div className="h-full min-h-44 rounded-3xl border border-dashed border-border bg-cream/70 flex flex-col items-center justify-center text-center px-6 py-8">
+                <div className="text-4xl mb-2">🎒</div>
+                <p className="text-sm font-bold text-warm-brown">가방이 비어 있어요</p>
+                <p className="text-xs text-sub-brown mt-1">
+                  상점에서 아이템을 사거나 미니게임 보상을 얻으면 여기에 표시돼요.
+                </p>
+              </div>
+            ) : (
+              INVENTORY_SECTIONS.map(section => {
+                const sectionItems = getInventorySectionItems(section.id);
+
+                return (
+                  <section key={section.id} className="rounded-2xl border border-border bg-white/80 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{section.icon}</span>
+                        <h3 className="text-sm font-bold text-warm-brown">{section.label}</h3>
+                      </div>
+                      <span className="text-[10px] font-semibold text-sub-brown bg-cream px-2 py-0.5 rounded-full">
+                        {sectionItems.reduce((total, item) => total + item.quantity, 0)}개
+                      </span>
+                    </div>
+
+                    {sectionItems.length === 0 ? (
+                      <p className="text-xs text-sub-brown bg-cream/70 rounded-2xl px-3 py-3 text-center">
+                        {section.emptyText}
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sectionItems.map(item => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-3 rounded-2xl bg-cream/60 px-3 py-2"
+                          >
+                            <div className="w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-2xl flex-shrink-0">
+                              {item.icon}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-warm-brown truncate">{item.name}</p>
+                                <span className="text-[10px] font-bold bg-peach/80 text-white px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                  ×{item.quantity}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-sub-brown line-clamp-2">{item.description}</p>
+                            </div>
+                            {item.id === RAINBOW_FRAGMENT_ID && (
+                              <button
+                                onClick={() => setActiveTab('exchange')}
+                                className="flex-shrink-0 text-[10px] font-bold bg-gradient-to-r from-pink-400 to-amber-300 text-white px-2.5 py-1.5 rounded-full active:scale-95 transition-transform"
+                              >
+                                교환소
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })
+            )}
+          </div>
+        ) : isExchangeTab ? (
+          <div className="flex-1 overflow-y-auto space-y-3 pb-2">
+            {RAINBOW_FRAGMENT_EXCHANGES.map(exchange => {
+              const owned = isExchangeOwned(exchange);
+              const affordable = rainbowFragmentQty >= exchange.cost;
+              const canExchange = affordable && !owned;
+
+              return (
+                <div
+                  key={exchange.id}
+                  className={`rounded-2xl border p-3 transition-all ${
+                    owned
+                      ? 'bg-muted/50 border-mint'
+                      : affordable
+                        ? 'bg-white border-pink-100 shadow-sm'
+                        : 'bg-cream border-border opacity-80'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-100 to-amber-100 flex items-center justify-center text-2xl flex-shrink-0">
+                      {exchange.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-warm-brown truncate">{exchange.name}</p>
+                        {owned && (
+                          <span className="text-[10px] font-bold bg-mint text-warm-brown px-2 py-0.5 rounded-full whitespace-nowrap">
+                            보유
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-sub-brown mt-0.5">{exchange.description}</p>
+                      <p className="text-[10px] text-pink-500 font-semibold mt-1">{exchange.rewardLabel}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleExchange(exchange)}
+                    disabled={!canExchange}
+                    className={`mt-3 w-full py-2 rounded-2xl text-xs font-bold transition-all ${
+                      canExchange
+                        ? 'bg-gradient-to-r from-pink-400 to-amber-300 text-white active:scale-95'
+                        : 'bg-muted text-sub-brown'
+                    }`}
+                  >
+                    {owned
+                      ? '이미 보유 중'
+                      : affordable
+                        ? `🌈 ${exchange.cost}개로 교환`
+                        : `🌈 ${exchange.cost}개 필요 · ${exchange.cost - rainbowFragmentQty}개 부족`}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : isWallpaperTab ? (
           <div className="flex-1 overflow-y-auto space-y-3 pb-2">
             {WALLPAPER_ITEMS.map(item => {
               const owned = isOwned(item);

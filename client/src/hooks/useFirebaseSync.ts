@@ -11,7 +11,16 @@ import {
   limitToLast,
   runTransaction,
 } from 'firebase/database';
-import { db, ensureAnonymousAuth, onAuthChanged, ensureGameId, lookupUidByGameId } from '../lib/firebase';
+import {
+  db,
+  ensureAnonymousAuth,
+  onAuthChanged,
+  ensureGameId,
+  lookupUidByGameId,
+  isGoogleLinked,
+  linkGoogleAccount,
+  signInWithGoogleForRestore,
+} from '../lib/firebase';
 import type { GameState } from '../lib/gameState';
 
 // ──────────────────────────────────────────────
@@ -56,6 +65,8 @@ export interface RecommendEntry {
 export function useFirebaseSync(state: GameState | null) {
   const [uid, setUid] = useState<string | null>(null);
   const [gameId, setGameId] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(true);
+  const [providerIds, setProviderIds] = useState<string[]>([]);
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [visitors, setVisitors] = useState<VisitorEntry[]>([]);
   const [friends, setFriends] = useState<FriendEntry[]>([]);
@@ -63,15 +74,25 @@ export function useFirebaseSync(state: GameState | null) {
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uidRef = useRef<string | null>(null);
+  const cloudLoadPendingRef = useRef(false);
 
   // ── 1. 익명 로그인 + 게임 ID 발급 ────────────
   useEffect(() => {
     const unsubscribe = onAuthChanged(async (user) => {
       if (user) {
+        if (uidRef.current !== user.uid) {
+          cloudLoadPendingRef.current = true;
+          uidRef.current = user.uid;
+        }
         setUid(user.uid);
+        setIsAnonymous(user.isAnonymous);
+        setProviderIds(user.providerData.map((provider) => provider.providerId));
         const gid = await ensureGameId(user.uid);
         setGameId(gid);
       } else {
+        uidRef.current = null;
+        cloudLoadPendingRef.current = false;
         ensureAnonymousAuth().catch(console.error);
       }
     });
@@ -97,12 +118,15 @@ export function useFirebaseSync(state: GameState | null) {
         if (!data.missions) data.missions = { missions: [], lastResetDate: '' };
         if (!Array.isArray(data.inventory)) data.inventory = [];
         if (!Array.isArray(data.collection)) data.collection = [];
+        if (!data.iapPurchases || typeof data.iapPurchases !== 'object' || Array.isArray(data.iapPurchases)) data.iapPurchases = {};
         if (!('eggColor' in data)) (data as GameState).eggColor = null;
         if (!('gachaEgg' in data)) (data as GameState).gachaEgg = null;
         return data;
       }
     } catch (e) {
       console.warn('[Firebase] loadFromCloud 실패:', e);
+    } finally {
+      cloudLoadPendingRef.current = false;
     }
     return null;
   }, [uid]);
@@ -111,6 +135,7 @@ export function useFirebaseSync(state: GameState | null) {
   const syncToCloud = useCallback(
     (gameState: GameState) => {
       if (!uid || !gameId) return;
+      if (cloudLoadPendingRef.current) return;
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(async () => {
         setSyncing(true);
@@ -161,7 +186,9 @@ export function useFirebaseSync(state: GameState | null) {
     onValue(rankRef, (snap) => {
       if (!snap.exists()) { setRanking([]); return; }
       const entries: RankingEntry[] = [];
-      snap.forEach((child) => entries.push(child.val() as RankingEntry));
+      snap.forEach((child) => {
+        entries.push(child.val() as RankingEntry);
+      });
       entries.sort((a, b) => b.level - a.level || b.coins - a.coins);
       setRanking(entries);
     });
@@ -175,7 +202,9 @@ export function useFirebaseSync(state: GameState | null) {
     onValue(visitRef, (snap) => {
       if (!snap.exists()) { setVisitors([]); return; }
       const list: VisitorEntry[] = [];
-      snap.forEach((child) => list.push(child.val() as VisitorEntry));
+      snap.forEach((child) => {
+        list.push(child.val() as VisitorEntry);
+      });
       list.sort((a, b) => b.visitedAt - a.visitedAt);
       setVisitors(list.slice(0, 20));
     });
@@ -189,7 +218,9 @@ export function useFirebaseSync(state: GameState | null) {
     onValue(friendRef, (snap) => {
       if (!snap.exists()) { setFriends([]); return; }
       const list: FriendEntry[] = [];
-      snap.forEach((child) => list.push(child.val() as FriendEntry));
+      snap.forEach((child) => {
+        list.push(child.val() as FriendEntry);
+      });
       list.sort((a, b) => b.addedAt - a.addedAt);
       setFriends(list);
     });
@@ -389,6 +420,9 @@ export function useFirebaseSync(state: GameState | null) {
   return {
     uid,
     gameId,
+    isAnonymous,
+    providerIds,
+    isGoogleLinked: isGoogleLinked(),
     ranking,
     visitors,
     friends,
@@ -403,5 +437,7 @@ export function useFirebaseSync(state: GameState | null) {
     removeFriend,
     copyMyGameId,
     addFriendCoins,
+    linkGoogleAccount,
+    signInWithGoogleForRestore,
   };
 }

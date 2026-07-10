@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/contexts/GameContext';
-import { calcPuzzleReward } from '@/lib/gameState';
+import { calcPuzzleReward, FRAGMENT_DROP_RATES, type PuzzleGameRewardResult } from '@/lib/gameState';
 import { TUTORIALS } from '@/lib/tutorialData';
 
 interface PuzzleGameProps {
@@ -21,6 +21,13 @@ const TILE_EMOJIS: Record<number, string> = {
   4: '💫', 5: '🌟', 6: '🔮',
   7: '🌈', 8: '🎀',
 };
+
+function getFragmentDropChance(dropItem: NonNullable<PuzzleGameRewardResult['dropItem']>): string {
+  const rate = dropItem.id === 'fragment_sparkle'
+    ? FRAGMENT_DROP_RATES.sparkle
+    : FRAGMENT_DROP_RATES.rainbow;
+  return `${Math.round(rate * 100)}%`;
+}
 
 function isSolved(board: Board): boolean {
   return board.every((v, i) => v === GOAL[i]);
@@ -97,13 +104,13 @@ function GoalPreview() {
 }
 
 export default function PuzzleGame({ onClose }: PuzzleGameProps) {
-  const { play } = useGame();
+  const { playPuzzleGame } = useGame();
   const [board, setBoard] = useState<Board>(() => shuffle([...GOAL]));
   const [moves, setMoves] = useState(0);
   const [solved, setSolved] = useState(false);
   const [rewarded, setRewarded] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
-  const [puzzleReward, setPuzzleReward] = useState<{ coins: number; exp: number } | null>(null);
+  const [puzzleReward, setPuzzleReward] = useState<PuzzleGameRewardResult | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
   const tutorial = TUTORIALS['toy_puzzle'];
@@ -128,9 +135,9 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
       setRewarded(true);
       const reward = calcPuzzleReward(moves);
       setPuzzleReward(reward);
-      play('toy_puzzle');
+      playPuzzleGame(reward);
     }
-  }, [board, moves, rewarded, play]);
+  }, [board, moves, rewarded, playPuzzleGame]);
 
   const handleReset = () => {
     setBoard(shuffle([...GOAL]));
@@ -264,11 +271,55 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
             {moves}번 만에 풀었어요!
           </p>
           {puzzleReward && (
-            <div className="flex justify-center gap-3 mb-3">
-              <span className="text-sm font-bold text-yellow-600">🪙 +{puzzleReward.coins}</span>
-              <span className="text-sm font-bold text-purple-600">EXP +{puzzleReward.exp}</span>
-              {moves <= 20 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">🏆 퍼펙트!</span>}
-              {moves > 20 && moves <= 30 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">⭐ 우수!</span>}
+            <div className="mb-3">
+              <div className="flex justify-center gap-3">
+                <span className="text-sm font-bold text-yellow-600">🪙 +{puzzleReward.coins}</span>
+                <span className="text-sm font-bold text-purple-600">EXP +{puzzleReward.exp}</span>
+                {puzzleReward.grade === 'perfect' && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">🏆 퍼펙트!</span>}
+                {puzzleReward.grade === 'great' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">⭐ 우수!</span>}
+              </div>
+              <div className={`mt-3 rounded-2xl px-4 py-3 border text-center ${
+                puzzleReward.dropItem?.dropped
+                  ? 'bg-yellow-50 border-yellow-300'
+                  : puzzleReward.dropItem
+                    ? 'bg-white/70 border-gray-200'
+                    : 'bg-white/50 border-gray-200'
+              }`}>
+                <div className={`text-xs font-bold mb-1 ${
+                  puzzleReward.dropItem?.dropped ? 'text-yellow-700' : 'text-sub-brown'
+                }`}>
+                  조각 드롭 결과
+                </div>
+                {puzzleReward.dropItem ? (
+                  puzzleReward.dropItem.dropped ? (
+                    <>
+                      <div className="text-yellow-700 text-xs font-bold mb-1">✨ 아이템 드롭!</div>
+                      <div className="text-2xl mb-1">{puzzleReward.dropItem.icon}</div>
+                      <div className="text-sm font-semibold text-warm-brown">
+                        {puzzleReward.dropItem.name}
+                      </div>
+                      <div className="text-[10px] text-sub-brown mt-1">
+                        드롭 확률 {getFragmentDropChance(puzzleReward.dropItem)} 성공 · 가방에서 확인해요
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sub-brown/70 text-xs mb-1">드롭 실패</div>
+                      <div className="text-2xl opacity-40">{puzzleReward.dropItem.icon}</div>
+                      <div className="text-[10px] text-sub-brown mt-1">
+                        {puzzleReward.dropItem.name} 드롭 확률 {getFragmentDropChance(puzzleReward.dropItem)}에 아깝게 빗나갔어요
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <>
+                    <div className="text-2xl opacity-40">🌈</div>
+                    <div className="text-[10px] text-sub-brown mt-1">
+                      이번 등급은 조각 드롭 대상이 아니에요
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
           <div className="flex gap-2 justify-center">

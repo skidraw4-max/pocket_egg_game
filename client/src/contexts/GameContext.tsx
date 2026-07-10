@@ -36,6 +36,12 @@ import {
   setPlayerNickname,
   applyBallGameReward,
   type BallGameRewardResult,
+  applyPuzzleReward,
+  type PuzzleGameRewardResult,
+  exchangeRainbowFragments,
+  type FragmentExchangeResult,
+  grantPurchasedGems,
+  type GrantPurchasedGemsResult,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import {
@@ -61,6 +67,13 @@ interface GameContextType {
   sleep: () => void;
   touch: () => void;
   purchase: (item: ShopItemDef) => PurchaseResult;
+  grantIapGems: (
+    purchaseKey: string,
+    productId: string,
+    amount: number,
+    quantity?: number
+  ) => GrantPurchasedGemsResult;
+  exchangeRainbow: (exchangeId: string) => FragmentExchangeResult;
   rename: (newName: string) => void;
   setNickname: (nickname: string) => Promise<void>;
   claimMission: (missionId: string) => void;
@@ -80,6 +93,9 @@ interface GameContextType {
   // Firebase 소셜
   uid: string | null;
   gameId: string | null;
+  isAnonymous: boolean;
+  providerIds: string[];
+  isGoogleLinked: boolean;
   syncing: boolean;
   lastSynced: Date | null;
   ranking: RankingEntry[];
@@ -91,8 +107,11 @@ interface GameContextType {
   addFriendByGameId: (gameId: string) => Promise<{ success: boolean; message: string }>;
   removeFriend: (targetUid: string) => Promise<void>;
   copyMyGameId: () => Promise<boolean>;
+  linkGoogleAccount: () => Promise<{ success: boolean; message: string; uid?: string }>;
+  signInWithGoogleForRestore: () => Promise<{ success: boolean; message: string; uid?: string }>;
   setTutorialSeen: (gameId: string, seen: boolean) => void;
   playBallGame: (reward: BallGameRewardResult) => void;
+  playPuzzleGame: (reward: PuzzleGameRewardResult) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -116,7 +135,27 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const clearAttendanceResult = useCallback(() => setAttendanceResult(null), []);
 
   // Firebase 동기화 훅
-  const { uid, gameId, syncing, lastSynced, ranking, visitors, friends, recommended, friendCoins, visitFriend, addFriendByGameId, removeFriend, copyMyGameId, loadFromCloud } =
+  const {
+    uid,
+    gameId,
+    isAnonymous,
+    providerIds,
+    isGoogleLinked,
+    syncing,
+    lastSynced,
+    ranking,
+    visitors,
+    friends,
+    recommended,
+    friendCoins,
+    visitFriend,
+    addFriendByGameId,
+    removeFriend,
+    copyMyGameId,
+    loadFromCloud,
+    linkGoogleAccount,
+    signInWithGoogleForRestore,
+  } =
     useFirebaseSync(state);
 
   // 앱 시작 시 클라우드 데이터와 병합 (더 최근 데이터 우선)
@@ -232,6 +271,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, [checkProgression, triggerAction, playSound, playVoice]);
 
+  /** 별퍼즐 등급별 차등 보상 적용 */
+  const playPuzzleGame = useCallback((reward: PuzzleGameRewardResult) => {
+    triggerAction('playing', 3000);
+    playSound('playing');
+    playVoice('playing');
+    setState(prev => {
+      const next = applyPuzzleReward(prev, reward);
+      const result = checkProgression(next);
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return advanceMission(result, 'play');
+    });
+  }, [checkProgression, triggerAction, playSound, playVoice]);
+
   const clean = useCallback(() => {
     triggerAction('cleaning', 2500);
     playSound('cleaning');
@@ -274,6 +326,33 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const r = purchaseItem(prev, item);
         if (r.success) return advanceMission(r.newState, 'shop');
         return prev;
+      });
+    }
+    return result;
+  }, [state]);
+
+  const grantIapGems = useCallback((
+    purchaseKey: string,
+    productId: string,
+    amount: number,
+    quantity = 1
+  ): GrantPurchasedGemsResult => {
+    const result = grantPurchasedGems(state, purchaseKey, productId, amount, quantity);
+    if (result.success) {
+      setState(prev => {
+        const current = grantPurchasedGems(prev, purchaseKey, productId, amount, quantity);
+        return current.success ? current.newState : prev;
+      });
+    }
+    return result;
+  }, [state]);
+
+  const exchangeRainbow = useCallback((exchangeId: string): FragmentExchangeResult => {
+    const result = exchangeRainbowFragments(state, exchangeId);
+    if (result.success) {
+      setState(prev => {
+        const current = exchangeRainbowFragments(prev, exchangeId);
+        return current.success ? current.newState : prev;
       });
     }
     return result;
@@ -335,6 +414,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         ...INITIAL_GAME_STATE,
         coins: prev.coins,
         gems: prev.gems,
+        iapPurchases: prev.iapPurchases ?? {},
         collection: prev.collection,
         room: prev.room ?? { wallpaper: 'default', furniture: [] },
         friendCoins: prev.friendCoins ?? 0,
@@ -365,6 +445,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // ── 유지할 항목 ──────────────────────────────────────────────────────────
       coins: prev.coins,
       gems: prev.gems,
+      iapPurchases: prev.iapPurchases ?? {},
       collection: prev.collection,
       claimedCollectionRewards: prev.claimedCollectionRewards,
       claimedEvolutionRewards: prev.claimedEvolutionRewards,
@@ -436,6 +517,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         sleep,
         touch,
         purchase,
+        grantIapGems,
+        exchangeRainbow,
         rename,
         setNickname,
       claimMission,
@@ -452,6 +535,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       clearAttendanceResult,
       uid,
       gameId,
+      isAnonymous,
+      providerIds,
+      isGoogleLinked,
       syncing,
       lastSynced,
       ranking,
@@ -463,8 +549,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addFriendByGameId,
       removeFriend,
       copyMyGameId,
+      linkGoogleAccount,
+      signInWithGoogleForRestore,
       setTutorialSeen,
       playBallGame,
+      playPuzzleGame,
       setEggColor,
     }}
     >
