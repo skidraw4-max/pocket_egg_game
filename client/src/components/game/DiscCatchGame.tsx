@@ -24,7 +24,7 @@ const GRADE_INFO: Record<string, { label: string; color: string; desc: string; b
 type FxItem = { id: number; text: string; color: string; x: number; y: number };
 
 export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
-  const { playDiscCatchGame, state } = useGame();
+  const { playDiscCatchGame } = useGame();
 
   const [phase, setPhase] = useState<'ready' | 'playing' | 'result'>('ready');
   const [round, setRound] = useState(0);
@@ -49,12 +49,8 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
   const petXRef = useRef(0.5);
   const playingRef = useRef(false);
 
-  const petEmoji =
-    state.pet.stage === 'egg' ? '🥚' :
-    state.pet.stage === 'baby' ? '🐣' :
-    state.pet.stage === 'child' ? '🐥' :
-    state.pet.stage === 'teen' ? '🐤' :
-    state.pet.stage === 'mythic' ? '✨' : '🐦';
+  /** 알 다음 단계 기본 포코 (원반 캐치 전용 스프라이트) */
+  const POCO_CATCH_IMG = '/characters/poco-baby-catch.png';
 
   const spawnFx = useCallback((text: string, color: string, x: number, y: number) => {
     fxIdRef.current += 1;
@@ -426,22 +422,26 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
           }}
         />
 
-        {/* 반려몬 */}
+        {/* 반려몬 — 기본 포코 */}
         <div
           className="absolute flex items-end justify-center pointer-events-none"
           style={{
             left: `${petX * 100}%`,
-            bottom: '18%',
-            width: 88,
-            height: 88,
-            marginLeft: -44,
-            fontSize: 64,
+            bottom: '16%',
+            width: 104,
+            height: 104,
+            marginLeft: -52,
             zIndex: 5,
             transition: 'left 60ms linear',
             filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.12))',
           }}
         >
-          {petEmoji}
+          <img
+            src={POCO_CATCH_IMG}
+            alt="포코"
+            draggable={false}
+            className="w-full h-full object-contain select-none"
+          />
         </div>
 
         {/* 원반 */}
