@@ -270,6 +270,16 @@ export const INITIAL_GAME_STATE: GameState = {
       traitBonus: { intelligence: 3 },
       description: '퍼즐을 풀면 머리가 좋아져요!',
     },
+    {
+      id: 'toy_disc',
+      name: '원반',
+      type: 'toy',
+      quantity: 1,
+      icon: '🥏',
+      effect: { mood: 22, fatigue: 18 },
+      traitBonus: { power: 4 },
+      description: '원반 캐치로 힘을 길러요!',
+    },
   ],
   room: {
     wallpaper: 'default',
@@ -1678,6 +1688,126 @@ export function applyBallGameReward(state: GameState, reward: BallGameRewardResu
   };
 
   // 힘 성향 차등 적용
+  const newTraits: GrowthTraits = {
+    ...state.pet.traits,
+    power: state.pet.traits.power + reward.powerBonus,
+  };
+
+  return {
+    ...state,
+    status: newStatus,
+    pet: {
+      ...state.pet,
+      traits: newTraits,
+      exp: state.pet.exp + applyEventExpBonus(reward.totalExp),
+      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+    },
+    coins: state.coins + reward.coins,
+    inventory: addDroppedItemToInventory(state.inventory, reward.dropItem),
+    lastSaveTime: Date.now(),
+  };
+}
+
+// ===== 원반 캐치 보상 시스템 =====
+
+export type DiscCatchGrade = 'perfect' | 'great' | 'normal' | 'complete';
+
+export interface DiscCatchRewardResult {
+  grade: DiscCatchGrade;
+  catches: number;
+  perfects: number;
+  totalRounds: number;
+  maxCombo: number;
+  powerBonus: number;
+  moodBonus: number;
+  fatigueBonus: number;
+  coins: number;
+  exp: number;
+  comboExpBonus: number;
+  totalExp: number;
+  dropItem: MiniGameDropItem | null;
+}
+
+/**
+ * 원반 캐치 등급·콤보 기반 보상 계산
+ * @param catches 성공 캐치 수
+ * @param perfects Perfect 판정 수
+ * @param totalRounds 총 라운드 (기본 12)
+ * @param maxCombo 최대 콤보
+ */
+export function calcDiscCatchReward(
+  catches: number,
+  perfects: number,
+  totalRounds: number,
+  maxCombo: number
+): DiscCatchRewardResult {
+  const rate = totalRounds > 0 ? catches / totalRounds : 0;
+  let grade: DiscCatchGrade;
+  let powerBonus: number;
+  let moodBonus: number;
+  let fatigueBonus: number;
+  let coins: number;
+  let exp: number;
+  let dropItem: MiniGameDropItem | null = null;
+
+  if (rate >= 0.92 && perfects >= 5) {
+    grade = 'perfect';
+    powerBonus = 6; moodBonus = 24; fatigueBonus = 18; coins = 22; exp = 30;
+    // 무지개 조각 30%
+    dropItem = {
+      id: RAINBOW_FRAGMENT_ID,
+      name: '무지개 조각',
+      icon: '🌈',
+      dropped: Math.random() < 0.3,
+    };
+  } else if (rate >= 0.75) {
+    grade = 'great';
+    powerBonus = 5; moodBonus = 22; fatigueBonus = 18; coins = 15; exp = 24;
+    // 반짝 조각 20%
+    dropItem = {
+      id: 'fragment_sparkle',
+      name: '반짝 조각',
+      icon: '✨',
+      dropped: Math.random() < 0.2,
+    };
+  } else if (rate >= 0.5) {
+    grade = 'normal';
+    powerBonus = 3; moodBonus = 18; fatigueBonus = 16; coins = 10; exp = 18;
+  } else {
+    grade = 'complete';
+    powerBonus = 2; moodBonus = 14; fatigueBonus = 14; coins = 6; exp = 12;
+  }
+
+  let comboExpBonus = 0;
+  if (maxCombo >= 6) comboExpBonus = 8;
+  else if (maxCombo >= 4) comboExpBonus = 5;
+  else if (maxCombo >= 2) comboExpBonus = 2;
+
+  return {
+    grade,
+    catches,
+    perfects,
+    totalRounds,
+    maxCombo,
+    powerBonus,
+    moodBonus,
+    fatigueBonus,
+    coins,
+    exp,
+    comboExpBonus,
+    totalExp: exp + comboExpBonus,
+    dropItem,
+  };
+}
+
+/** 원반 캐치 보상 적용 */
+export function applyDiscCatchReward(state: GameState, reward: DiscCatchRewardResult): GameState {
+  const newStatus: PetStatus = {
+    ...state.status,
+    mood: clamp(state.status.mood + reward.moodBonus, 0, 100),
+    fatigue: clamp(state.status.fatigue + reward.fatigueBonus, 0, 100),
+  };
+
   const newTraits: GrowthTraits = {
     ...state.pet.traits,
     power: state.pet.traits.power + reward.powerBonus,

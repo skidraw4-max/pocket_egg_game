@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>원반 캐치 — 미리보기</title>
+  <style>
+    :root {
+      --cream: #FFF8F0;
+      --peach: #FFB088;
+      --mint: #A8E6CF;
+      --lavender: #C8B6FF;
+      --brown: #4A3728;
+      --sub: #8B7355;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #e8dfd4;
+      font-family: "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+      color: var(--brown);
+    }
+    .phone {
+      width: min(390px, 100vw);
+      height: min(780px, 100vh);
+      background: linear-gradient(180deg, #d8f0e4 0%, #fff8f0 45%, #ffe8d6 100%);
+      border-radius: 28px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 50px rgba(74,55,40,0.18);
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 16px 8px;
+      gap: 8px;
+    }
+    .pill {
+      background: rgba(255,255,255,0.85);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .field {
+      position: absolute;
+      inset: 56px 0 110px;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .hill {
+      position: absolute;
+      bottom: 0; left: -10%; right: -10%;
+      height: 38%;
+      background: radial-gradient(ellipse at 50% 0%, #b8e8c8 0%, #8fd4a8 70%);
+      border-radius: 50% 50% 0 0;
+    }
+    .pet {
+      position: absolute;
+      bottom: 18%;
+      width: 88px;
+      height: 88px;
+      margin-left: -44px;
+      transition: left 60ms linear;
+      z-index: 5;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      font-size: 64px;
+      filter: drop-shadow(0 8px 12px rgba(0,0,0,0.12));
+      user-select: none;
+    }
+    .zone {
+      position: absolute;
+      bottom: 14%;
+      width: 110px;
+      height: 28px;
+      margin-left: -55px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,176,136,0.7);
+      background: rgba(255,176,136,0.18);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .disc {
+      position: absolute;
+      width: 54px;
+      height: 54px;
+      margin-left: -27px;
+      margin-top: -27px;
+      border-radius: 50%;
+      background: conic-gradient(from 20deg, #FFB088, #FCD34D, #A8E6CF, #93C5FD, #C8B6FF, #FFB088);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.15), inset 0 0 0 6px rgba(255,255,255,0.35);
+      z-index: 8;
+      pointer-events: none;
+    }
+    .disc::after {
+      content: "";
+      position: absolute;
+      inset: 16px;
+      border-radius: 50%;
+      background: rgba(255,248,240,0.85);
+    }
+    .fx {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      font-weight: 800;
+      pointer-events: none;
+      animation: pop 700ms ease-out forwards;
+      z-index: 20;
+    }
+    @keyframes pop {
+      0% { opacity: 0; transform: translate(-50%, -40%) scale(0.7); }
+      20% { opacity: 1; transform: translate(-50%, -70%) scale(1.1); }
+      100% { opacity: 0; transform: translate(-50%, -120%) scale(1); }
+    }
+    .dock {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      padding: 12px 16px 20px;
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255,255,255,0.7);
+    }
+    .hint { font-size: 12px; color: var(--sub); text-align: center; margin-bottom: 10px; }
+    .btn {
+      width: 100%;
+      border: 0;
+      border-radius: 18px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+      background: linear-gradient(135deg, #FFB088, #FF8F6B);
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .overlay {
+      position: absolute; inset: 0;
+      background: rgba(74,55,40,0.35);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 30; padding: 20px;
+    }
+    .card {
+      width: 100%;
+      background: rgba(255,255,255,0.96);
+      border-radius: 24px;
+      padding: 22px 18px;
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+    }
+    .card h1 { margin: 0 0 6px; font-size: 24px; }
+    .card p { margin: 0 0 14px; color: var(--sub); font-size: 13px; line-height: 1.5; }
+    .rules {
+      text-align: left;
+      background: #FFF8F0;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .stat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0 16px;
+      text-align: left;
+    }
+    .stat div {
+      background: #FFF8F0;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 12px;
+    }
+    .grade { font-size: 28px; font-weight: 900; margin: 4px 0 8px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="phone" id="app">
+    <div class="hud">
+      <div class="pill" id="roundPill">라운드 0/12</div>
+      <div class="pill" id="scorePill">캐치 0</div>
+      <div class="pill" id="comboPill">콤보 0</div>
+    </div>
+
+    <div class="field" id="field">
+      <div class="hill"></div>
+      <div class="zone" id="zone"></div>
+      <div class="pet" id="pet">🐣</div>
+    </div>
+
+    <div class="dock">
+      <div class="hint">화면을 좌우로 드래그 · 원반이 캐치존에 올 때 받으세요</div>
+      <button class="btn" id="mainBtn">시작하기</button>
+    </div>
+
+    <div class="overlay" id="ready">
+      <div class="card">
+        <div style="font-size:48px;margin-bottom:6px">🥏</div>
+        <h1>원반 캐치</h1>
+        <p>날아오는 원반을 타이밍에 맞춰 받으세요!<br/>공놀이보다 조금 더 집중이 필요해요.</p>
+        <div class="rules">
+          <b>규칙 요약</b><br/>
+          · 총 12회 원반이 날아옵니다<br/>
+          · 좌우 드래그로 반려몬 이동<br/>
+          · Perfect / Good / Miss 판정<br/>
+          · 연속 캐치로 콤보 보너스
+        </div>
+        <button class="btn" id="startBtn">시작하기</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="result">
+      <div class="card">
+        <div class="grade" id="gradeLabel">⭐ 우수!</div>
+        <p id="gradeDesc">멋진 캐치였어요!</p>
+        <div class="stat" id="statBox"></div>
+        <button class="btn" id="againBtn">다시 미리보기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOTAL = 12;
+    const CATCH_RADIUS = 58; // px
+    const field = document.getElementById('field');
+    const pet = document.getElementById('pet');
+    const zone = document.getElementById('zone');
+    const ready = document.getElementById('ready');
+    const result = document.getElementById('result');
+    const roundPill = document.getElementById('roundPill');
+    const scorePill = document.getElementById('scorePill');
+    const comboPill = document.getElementById('comboPill');
+
+    let petX = 0.5; // 0~1
+    let playing = false;
+    let round = 0;
+    let catches = 0;
+    let perfects = 0;
+    let goods = 0;
+    let misses = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let discEl = null;
+    let anim = null;
+
+    function setPet(x) {
+      petX = Math.max(0.12, Math.min(0.88, x));
+      const pct = (petX * 100) + '%';
+      pet.style.left = pct;
+      zone.style.left = pct;
+    }
+    setPet(0.5);
+
+    function pointerX(e) {
+      const rect = field.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      return (clientX - rect.left) / rect.width;
+    }
+
+    field.addEventListener('pointerdown', (e) => {
+      field.setPointerCapture(e.pointerId);
+      setPet(pointerX(e));
+    });
+    field.addEventListener('pointermove', (e) => {
+      if (!playing && ready.classList.contains('hidden') === false) return;
+      if (e.buttons === 0 && e.pointerType === 'mouse') return;
+      setPet(pointerX(e));
+    });
+
+    function spawnFx(text, color, x, y) {
+      const el = document.createElement('div');
+      el.className = 'fx';
+      el.textContent = text;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.style.color = color;
+      field.appendChild(el);
+      setTimeout(() => el.remove(), 700);
+    }
+
+    function gradeFromScore() {
+      const rate = catches / TOTAL;
+      if (rate >= 0.92 && perfects >= 5) return { label: '🏆 퍼펙트!', desc: '완벽한 캐치 실력이에요!', key: 'perfect' };
+      if (rate >= 0.75) return { label: '⭐ 우수!', desc: '멋진 캐치였어요!', key: 'great' };
+      if (rate >= 0.5) return { label: '✅ 일반', desc: '잘 받았어요!', key: 'normal' };
+      return { label: '🎀 완성', desc: '다음엔 더 잘할 수 있어요!', key: 'complete' };
+    }
+
+    function rewardTable(key) {
+      const table = {
+        perfect:  { power: 6, mood: 24, fatigue: 18, coins: 22, exp: 30 },
+        great:    { power: 5, mood: 22, fatigue: 18, coins: 15, exp: 24 },
+        normal:   { power: 3, mood: 18, fatigue: 16, coins: 10, exp: 18 },
+        complete: { power: 2, mood: 14, fatigue: 14, coins: 6,  exp: 12 },
+      };
+      const base = table[key];
+      const comboBonus = maxCombo >= 6 ? 8 : maxCombo >= 4 ? 5 : maxCombo >= 2 ? 2 : 0;
+      return { ...base, exp: base.exp + comboBonus, comboBonus };
+    }
+
+    function finish() {
+      playing = false;
+      const g = gradeFromScore();
+      const r = rewardTable(g.key);
+      document.getElementById('gradeLabel').textContent = g.label;
+      document.getElementById('gradeDesc').textContent = g.desc;
+      document.getElementById('statBox').innerHTML = `
+        <div>캐치<br/><b>${catches}/${TOTAL}</b></div>
+        <div>Perfect<br/><b>${perfects}</b></div>
+        <div>최대 콤보<br/><b>${maxCombo}</b></div>
+        <div>힘 / 기분 / 피로<br/><b>+${r.power} / +${r.mood} / +${r.fatigue}</b></div>
+        <div>코인<br/><b>+${r.coins}</b></div>
+        <div>EXP<br/><b>+${r.exp}</b>${r.comboBonus ? ` (콤보+${r.comboBonus})` : ''}</div>
+      `;
+      result.classList.remove('hidden');
+    }
+
+    function throwDisc() {
+      if (round >= TOTAL) {
+        finish();
+        return;
+      }
+      round += 1;
+      roundPill.textContent = `라운드 ${round}/${TOTAL}`;
+
+      if (discEl) discEl.remove();
+      discEl = document.createElement('div');
+      discEl.className = 'disc';
+      field.appendChild(discEl);
+
+      const rect = field.getBoundingClientRect();
+      const fromLeft = Math.random() > 0.5;
+      const startX = fromLeft ? -40 : rect.width + 40;
+      const endX = fromLeft ? rect.width + 40 : -40;
+      const peakY = 40 + Math.random() * 80;
+      const landY = rect.height * 0.72;
+      const duration = 1400 + Math.random() * 500; // 1.4~1.9s — 공놀이보다 여유+난이도
+      const start = performance.now();
+
+      const targetLandX = (0.18 + Math.random() * 0.64) * rect.width;
+      // 원반이 targetLandX 근처를 지나도록 베지어 느낌의 선형+아치
+      function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const ease = t;
+        const x = startX + (targetLandX - startX) * Math.min(1, ease / 0.85);
+        // 착지 후 살짝 지나감
+        const x2 = t > 0.85 ? targetLandX + (endX - targetLandX) * ((t - 0.85) / 0.15) : x;
+        const y = peakY + (landY - peakY) * (1 - 4 * (t - 0.5) * (t - 0.5)); // parabola-ish
+        discEl.style.left = x2 + 'px';
+        discEl.style.top = Math.max(30, y) + 'px';
+        discEl.style.transform = `rotate(${t * 720}deg) scale(${1 - t * 0.1})`;
+
+        // catch window near landing
+        if (t >= 0.72 && t <= 0.9 && !discEl.dataset.resolved) {
+          const petPx = petX * rect.width;
+          const dx = Math.abs(x2 - petPx);
+          const dy = Math.abs(y - landY);
+          if (dx <= CATCH_RADIUS && dy < 50) {
+            discEl.dataset.resolved = '1';
+            const perfect = dx <= 28;
+            if (perfect) {
+              perfects++; catches++; combo++;
+              spawnFx('Perfect!', '#F59E0B', x2, y - 20);
+            } else {
+              goods++; catches++; combo++;
+              spawnFx('Good!', '#60A5FA', x2, y - 20);
+            }
+            maxCombo = Math.max(maxCombo, combo);
+            scorePill.textContent = `캐치 ${catches}`;
+            comboPill.textContent = `콤보 ${combo}`;
+            discEl.remove();
+            setTimeout(throwDisc, 450);
+            return;
+          }
+        }
+
+        if (t >= 1) {
+          if (!discEl.dataset.resolved) {
+            discEl.dataset.resolved = '1';
+            misses++;
+            combo = 0;
+            comboPill.textContent = `콤보 0`;
+            spawnFx('Miss', '#A78BFA', targetLandX, landY - 30);
+          }
+          discEl.remove();
+          setTimeout(throwDisc, 400);
+          return;
+        }
+        anim = requestAnimationFrame(frame);
+      }
+      anim = requestAnimationFrame(frame);
+    }
+
+    function startGame() {
+      ready.classList.add('hidden');
+      result.classList.add('hidden');
+      playing = true;
+      round = 0; catches = 0; perfects = 0; goods = 0; misses = 0;
+      combo = 0; maxCombo = 0;
+      scorePill.textContent = '캐치 0';
+      comboPill.textContent = '콤보 0';
+      roundPill.textContent = '라운드 0/12';
+      setPet(0.5);
+      setTimeout(throwDisc, 500);
+    }
+
+    document.getElementById('startBtn').onclick = startGame;
+    document.getElementById('mainBtn').onclick = () => {
+      if (!ready.classList.contains('hidden')) startGame();
+    };
+    document.getElementById('againBtn').onclick = () => {
+      result.classList.add('hidden');
+      ready.classList.remove('hidden');
+    };
+  </script>
+</body>
+</html>
