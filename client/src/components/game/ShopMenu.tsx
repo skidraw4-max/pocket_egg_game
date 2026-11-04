@@ -11,6 +11,11 @@ import {
   SPARKLE_FRAGMENT_ID,
   todayStr,
   getInventoryQuantity,
+  WEEKEND_SHOP_ITEMS,
+  isWeekendShopActive,
+  getWeekendShopCountdownMs,
+  getWeekendShopPurchaseCount,
+  formatCountdown,
   type FragmentExchangeDef,
   type InventoryItem,
   type ShopItemDef,
@@ -40,7 +45,7 @@ interface ShopMenuProps {
   onRequestContextGuide?: (articleId: string) => void;
 }
 
-type TabType = 'diamond' | 'food' | 'toy' | 'decor' | 'wallpaper' | 'social' | 'inventory' | 'exchange';
+type TabType = 'weekend' | 'diamond' | 'food' | 'toy' | 'decor' | 'wallpaper' | 'social' | 'inventory' | 'exchange';
 type InventorySectionType = Extract<InventoryItem['type'], 'food' | 'toy' | 'special'>;
 
 const INVENTORY_SECTIONS: { id: InventorySectionType; label: string; icon: string; emptyText: string }[] = [
@@ -241,6 +246,24 @@ const SHOP_ITEMS: ShopItemDef[] = [
       effect: { mood: 15, fatigue: 10 },
       traitBonus: { intelligence: 3 },
       description: '퍼즐을 풀면 머리가 좋아져요!',
+    },
+  },
+  {
+    id: 'toy_disc',
+    name: '원반',
+    type: 'toy',
+    icon: '🥏',
+    price: 120,
+    currency: 'coins',
+    description: '힘으로 캐치하는 원반',
+    inventoryItem: {
+      id: 'toy_disc',
+      name: '원반',
+      type: 'toy',
+      icon: '🥏',
+      effect: { mood: 22, fatigue: 18 },
+      traitBonus: { power: 4 },
+      description: '원반 캐치로 힘을 길러요!',
     },
   },
   {
@@ -480,7 +503,10 @@ export default function ShopMenu({
   onRequestContextGuide,
 }: ShopMenuProps) {
   const { state, purchase, purchaseFriendCoinItem, exchangeRainbow, exchangeSparkle, applyVerifiedIapPurchase, applyRoomWallpaper, uid, gameId, friendCoins } = useGame();
-  const [activeTab, setActiveTab] = useState<TabType>('diamond');
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    isWeekendShopActive() ? 'weekend' : 'diamond'
+  );
+  const [weekendCountdown, setWeekendCountdown] = useState(() => getWeekendShopCountdownMs());
   const [toast, setToast] = useState<Toast | null>(null);
   const [previewWallpaper, setPreviewWallpaper] = useState<string | null>(null);
   const [diamondProducts, setDiamondProducts] = useState<DiamondCatalogProduct[]>(() => getDiamondCatalog());
@@ -495,6 +521,7 @@ export default function ShopMenu({
   const applyVerifiedIapPurchaseRef = useRef(applyVerifiedIapPurchase);
   const uidRef = useRef(uid);
 
+  const isWeekendTab = activeTab === 'weekend';
   const isDiamondTab = activeTab === 'diamond';
   const isSocialTab = activeTab === 'social';
   const isWallpaperTab = activeTab === 'wallpaper';
@@ -502,6 +529,7 @@ export default function ShopMenu({
   const isInventoryTab = activeTab === 'inventory';
   const isExchangeTab = activeTab === 'exchange';
   const isFoodTab = activeTab === 'food';
+  const weekendShopOpen = weekendCountdown.active;
   const activeRoomPerks = getAggregatedRoomPerks(state);
   const [exchangeSection, setExchangeSection] = useState<'rainbow' | 'sparkle'>('rainbow');
   const rainbowFragmentQty = getInventoryQuantity(state, RAINBOW_FRAGMENT_ID);
@@ -512,13 +540,20 @@ export default function ShopMenu({
   const decorGuideTriggered = useRef(false);
 
   useEffect(() => {
+    const id = window.setInterval(() => setWeekendCountdown(getWeekendShopCountdownMs()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (activeTab !== 'decor' || decorGuideTriggered.current) return;
     if (state.tutorialSeen?.[CONTEXT_GUIDE_IDS.decorPerks]) return;
     decorGuideTriggered.current = true;
     onRequestContextGuide?.(CONTEXT_GUIDE_IDS.decorPerks);
   }, [activeTab, state.tutorialSeen, onRequestContextGuide]);
 
-  const currentItems = isSocialTab
+  const currentItems = isWeekendTab
+    ? WEEKEND_SHOP_ITEMS
+    : isSocialTab
     ? SOCIAL_ITEMS
     : isWallpaperTab
       ? WALLPAPER_ITEMS
@@ -655,6 +690,10 @@ export default function ShopMenu({
         );
       } else if (result.reason === 'already_owned') {
         showToast('이미 보유 중이에요!', 'info');
+      } else if (result.reason === 'event_closed') {
+        showToast('주말 특가는 금~일에만 열려요!', 'info');
+      } else if (result.reason === 'weekly_limit') {
+        showToast('이번 주 구매 한도에 도달했어요!', 'info');
       }
       return;
     }
@@ -764,10 +803,19 @@ export default function ShopMenu({
     return state.inventory.find(i => i.id === itemId)?.quantity ?? 0;
   };
 
+  const isWeeklyLimitReached = (item: ShopItemDef) => {
+    if (!item.weekendOnly || item.weeklyLimit == null) return false;
+    return getWeekendShopPurchaseCount(state, item.id) >= item.weeklyLimit;
+  };
+
   const renderShopItemCard = (item: ShopItemDef) => {
     const owned = isOwned(item);
     const affordable = canAfford(item);
-    const qty = item.type !== 'decor' ? getInventoryQty(item.id) : null;
+    const qty = item.type !== 'decor' && item.id !== 'gem_weekend_pack' ? getInventoryQty(item.id) : null;
+    const boughtCount = item.weekendOnly ? getWeekendShopPurchaseCount(state, item.id) : 0;
+    const limitReached = isWeeklyLimitReached(item);
+    const lockedByEvent = Boolean(item.weekendOnly && !weekendShopOpen);
+    const purchaseDisabled = owned || limitReached || lockedByEvent;
     const perkLines = item.type === 'decor'
       ? getDecorPerkShopLines(item.id, state.room?.wallpaper)
       : [];
@@ -775,16 +823,18 @@ export default function ShopMenu({
     return (
       <button
         key={item.id}
-        onClick={() => !owned && handlePurchase(item)}
-        disabled={owned}
+        onClick={() => !purchaseDisabled && handlePurchase(item)}
+        disabled={purchaseDisabled}
         className={`
           relative flex flex-col items-center gap-1 p-3 rounded-2xl border
           transition-all duration-150
-          ${owned
+          ${purchaseDisabled
             ? 'bg-muted/50 border-border opacity-60 cursor-default'
             : affordable
               ? item.currency === 'friendCoins'
                 ? 'bg-purple-50 border-purple-200 active:scale-95'
+                : item.weekendOnly
+                  ? 'bg-amber-50 border-amber-200 active:scale-95'
                 : item.currency === 'gems'
                   ? 'bg-violet-50 border-violet-200 active:scale-95'
                   : 'bg-cream border-border cushion-btn active:scale-95'
@@ -792,12 +842,14 @@ export default function ShopMenu({
           }
         `}
       >
-        {item.currency === 'friendCoins' && !owned && (
-          <span className="absolute top-2 left-2 text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-            소셜
+        {(item.badge || (item.currency === 'friendCoins' && !owned)) && !owned && (
+          <span className={`absolute top-2 left-2 text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold ${
+            item.weekendOnly ? 'bg-amber-500' : 'bg-purple-500'
+          }`}>
+            {item.badge || '소셜'}
           </span>
         )}
-        {item.currency === 'gems' && !owned && (
+        {item.currency === 'gems' && !owned && !item.weekendOnly && (
           <span className="absolute top-2 left-2 text-[9px] bg-violet-500 text-white px-1.5 py-0.5 rounded-full font-bold">
             💎
           </span>
@@ -805,6 +857,21 @@ export default function ShopMenu({
         {owned && (
           <span className="absolute top-2 right-2 text-[10px] bg-mint text-warm-brown px-1.5 py-0.5 rounded-full font-bold">
             보유
+          </span>
+        )}
+        {!owned && limitReached && (
+          <span className="absolute top-2 right-2 text-[10px] bg-stone-400 text-white px-1.5 py-0.5 rounded-full font-bold">
+            한도
+          </span>
+        )}
+        {!owned && lockedByEvent && (
+          <span className="absolute top-2 right-2 text-[10px] bg-stone-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+            잠김
+          </span>
+        )}
+        {item.weekendOnly && item.weeklyLimit != null && !owned && (
+          <span className="absolute bottom-2 left-2 text-[9px] text-amber-700/80 font-semibold">
+            {boughtCount}/{item.weeklyLimit}
           </span>
         )}
         {qty !== null && qty > 0 && (
@@ -935,6 +1002,7 @@ export default function ShopMenu({
   };
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: 'weekend', label: '주말특가', icon: '🎁' },
     { id: 'diamond', label: '다이아', icon: '💎' },
     { id: 'food', label: '먹이', icon: '🍖' },
     { id: 'toy', label: '장난감', icon: '🎾' },
@@ -1008,7 +1076,9 @@ export default function ShopMenu({
               onClick={() => setActiveTab(tab.id)}
               className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 activeTab === tab.id
-                  ? tab.id === 'diamond'
+                  ? tab.id === 'weekend'
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-white'
+                  : tab.id === 'diamond'
                     ? 'bg-gradient-to-r from-sky-400 to-violet-400 text-white'
                     : tab.id === 'social'
                     ? 'bg-purple-500 text-white'
@@ -1027,6 +1097,30 @@ export default function ShopMenu({
             </button>
           ))}
         </div>
+
+        {/* 주말 특가 안내 배너 */}
+        {isWeekendTab && (
+          <div
+            className="mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-2 border"
+            style={{
+              background: weekendShopOpen
+                ? 'linear-gradient(135deg, #fff7ed, #ffedd5)'
+                : '#f5f5f4',
+              borderColor: weekendShopOpen ? '#fdba74' : '#e7e5e4',
+            }}
+          >
+            <span className="text-lg">{weekendShopOpen ? '🎉' : '🔒'}</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-amber-700">
+                {weekendShopOpen ? '주말 특가 진행 중! (금~일)' : '주말 특가 잠금 중'}
+              </p>
+              <p className="text-xs text-amber-600/80">
+                {weekendCountdown.label}{' '}
+                <span className="font-bold">{formatCountdown(weekendCountdown.remainingMs)}</span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 소셜 탭 안내 배너 */}
         {isSocialTab && (

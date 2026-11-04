@@ -57,6 +57,8 @@ import {
   type RibbonGameRewardResult,
   applyLeafFlipReward,
   type LeafFlipRewardResult,
+  applyDiscCatchReward,
+  type DiscCatchRewardResult,
   exchangeRainbowFragments,
   exchangeSparkleFragments,
   type FragmentExchangeResult,
@@ -203,6 +205,7 @@ interface GameContextType {
   playPuzzleGame: (reward: PuzzleGameRewardResult) => void;
   playRibbonGame: (reward: RibbonGameRewardResult) => void;
   playLeafFlipGame: (reward: LeafFlipRewardResult) => void;
+  playDiscCatchGame: (reward: DiscCatchRewardResult) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -558,6 +561,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const next = applyLeafFlipReward(prev, reward);
       let result = checkProgression(next);
       result = advanceDailyChallengeOnLeafFlip(result, reward.grade);
+      if (reward.grade === 'perfect') {
+        result = advanceWeeklyGoalOnMinigamePerfect(result);
+      }
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return finalizeWithIntimacy(advanceMission(result, 'play'));
+    });
+  }, [checkProgression, triggerAction, playSound, playVoice, finalizeWithIntimacy]);
+
+  /** 원반 캐치 등급별 차등 보상 적용 */
+  const playDiscCatchGame = useCallback((reward: DiscCatchRewardResult) => {
+    triggerAction('playing', 3000);
+    playSound('playing');
+    playVoice('playing');
+    setState(prev => {
+      const next = applyDiscCatchReward(prev, reward);
+      let result = checkProgression(next);
       if (reward.grade === 'perfect') {
         result = advanceWeeklyGoalOnMinigamePerfect(result);
       }
@@ -1082,6 +1101,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       playBallGame,
       playPuzzleGame,
       playRibbonGame,
+      playDiscCatchGame,
       playLeafFlipGame,
       setEggColor,
     }}

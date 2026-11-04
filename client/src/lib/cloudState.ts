@@ -189,6 +189,15 @@ const INVENTORY_CATALOG: Record<string, Omit<InventoryItem, 'quantity'>> = (() =
       description: '잎사귀 뒤집기로 활력이 올라가요!',
     },
     {
+      id: 'toy_disc',
+      name: '원반',
+      type: 'toy' as const,
+      icon: '🥏',
+      effect: { mood: 22, fatigue: 18 },
+      traitBonus: { power: 4 },
+      description: '원반 캐치로 힘을 길러요!',
+    },
+    {
       id: 'food_rainbow_snack',
       name: '무지개 간식',
       type: 'food' as const,
@@ -213,7 +222,7 @@ const INVENTORY_CATALOG: Record<string, Omit<InventoryItem, 'quantity'>> = (() =
 })();
 
 /** PlayMenu에 표시할 미니게임 장난감 ID (고정 순서) */
-export const PLAY_TOY_IDS = ['toy_puzzle', 'toy_ball', 'toy_ribbon', 'toy_leaf'] as const;
+export const PLAY_TOY_IDS = ['toy_puzzle', 'toy_ball', 'toy_ribbon', 'toy_leaf', 'toy_disc'] as const;
 
 export function getInventoryCatalogItem(id: string): Omit<InventoryItem, 'quantity'> | undefined {
   return INVENTORY_CATALOG[id];

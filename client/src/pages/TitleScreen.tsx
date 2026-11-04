@@ -162,7 +162,7 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
         </button>
 
         {/* 버전 · 개발사 */}
-        <div className="text-white/50 text-xs">v1.11.18 · TNK</div>
+        <div className="text-white/50 text-xs">v1.12.0 · TNK</div>
         <a
           href={PRIVACY_POLICY_URL}
           target="_blank"
