@@ -204,18 +204,35 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore capture failures on some WebViews */
+    }
     pointerActiveRef.current = true;
     setPet(pointerToX(e.clientX));
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!pointerActiveRef.current && e.pointerType === 'mouse' && e.buttons === 0) return;
+    // 마우스: 버튼 누른 상태만 / 터치·펜: 드래그 중 또는 이동 모두 반영
+    if (e.pointerType === 'mouse') {
+      if (!pointerActiveRef.current && e.buttons === 0) return;
+    } else if (!pointerActiveRef.current && e.buttons === 0) {
+      return;
+    }
     setPet(pointerToX(e.clientX));
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e?: React.PointerEvent) => {
     pointerActiveRef.current = false;
+    if (e) {
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
   };
 
   // ── 준비 화면 ──────────────────────────────────────────────
@@ -370,11 +387,15 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
   // ── 게임 플레이 화면 ───────────────────────────────────────
   return (
     <div
-      className="absolute inset-0 z-50 overflow-hidden select-none"
+      className="absolute inset-0 z-[320] overflow-hidden select-none touch-none"
       style={{ background: 'linear-gradient(180deg, #d8f0e4 0%, #fff8f0 45%, #ffe8d6 100%)' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
       {/* HUD */}
-      <div className="flex items-center justify-between px-3 pt-4 pb-2 gap-2">
+      <div className="flex items-center justify-between px-3 pt-4 pb-2 gap-2 pointer-events-none">
         <div className="px-3 py-1.5 rounded-full bg-white/85 text-xs font-bold text-[#4A3728] shadow-sm">
           라운드 {round}/{TOTAL_ROUNDS}
         </div>
@@ -386,15 +407,11 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
         </div>
       </div>
 
-      {/* 필드 */}
+      {/* 필드 — 좌표 기준(원반·캐치 판정). 입력은 상위 전체 화면에서 받음 */}
       <div
         ref={fieldRef}
-        className="relative mx-0 overflow-hidden touch-none"
-        style={{ height: 'calc(100% - 120px)' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        className="relative mx-0 overflow-hidden pointer-events-none"
+        style={{ height: 'calc(100% - 100px)' }}
       >
         {/* 언덕 */}
         <div
@@ -493,10 +510,13 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
         ))}
       </div>
 
-      {/* 하단 힌트 */}
-      <div className="absolute left-0 right-0 bottom-0 px-4 py-4 bg-white/80 backdrop-blur-sm border-t border-white/70">
+      {/* 하단 힌트 — 입력은 상위 컨테이너가 받음 */}
+      <div className="absolute left-0 right-0 bottom-0 px-4 py-4 bg-white/80 backdrop-blur-sm border-t border-white/70 pointer-events-none">
         <div className="text-center text-xs text-[#8B7355]">
-          화면을 좌우로 드래그 · 원반이 캐치존에 올 때 받으세요
+          화면 아무 곳이나 좌우로 드래그 · 포코를 원반 착지점에 맞추세요
+        </div>
+        <div className="mt-1 text-center text-[10px] text-[#A89078]">
+          ← 드래그하면 포코가 따라 움직여요 →
         </div>
       </div>
 
