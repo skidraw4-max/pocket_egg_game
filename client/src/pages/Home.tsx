@@ -25,6 +25,7 @@ import PWAPrompt from '@/components/game/PWAPrompt';
 import SocialMenu from '@/components/game/SocialMenu';
 import NicknameModal from '@/components/game/NicknameModal';
 import { usePushNotification } from '@/hooks/usePushNotification';
+import { isWeekendDoubleExpActive } from '@/lib/gameState';
 
 export type ActiveMenu = 'none' | 'feed' | 'play' | 'decor' | 'collection' | 'profile' | 'quest' | 'hall' | 'social' | 'nickname';
 
@@ -95,6 +96,7 @@ export default function Home({ onResetPet }: HomeProps) {
           onNicknameClick={() => setActiveMenu('nickname')}
           nickname={state.nickname}
           syncing={syncing}
+          weekendDoubleExp={isWeekendDoubleExpActive()}
           unclaimedMissions={
             (state.missions?.missions ?? []).filter(m => m.completed && !m.claimed).length
           }

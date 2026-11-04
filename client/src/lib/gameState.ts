@@ -321,6 +321,51 @@ export function calculateTimeSkip(state: GameState): GameState {
   };
 }
 
+// ===== 주말 이벤트 / 단계 비주얼 =====
+
+/** Asia/Seoul 기준 요일 (0=일 … 6=토) */
+export function getSeoulDayOfWeek(now: number = Date.now()): number {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    weekday: 'short',
+  }).format(new Date(now));
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[weekday] ?? new Date(now).getUTCDay();
+}
+
+/** 토·일(KST) 주말 더블 EXP 활성 여부 */
+export function isWeekendDoubleExpActive(now: number = Date.now()): boolean {
+  const day = getSeoulDayOfWeek(now);
+  return day === 0 || day === 6;
+}
+
+/** 주말 더블 EXP 배율 적용 (알 패시브와 곱연산 가능하도록 순수 배수) */
+export function applyEventExpBonus(baseExp: number, now: number = Date.now()): number {
+  if (baseExp <= 0) return 0;
+  return isWeekendDoubleExpActive(now) ? Math.round(baseExp * 2) : baseExp;
+}
+
+export interface StageVisualStyle {
+  scale: number;
+  glow: string;
+  ring: string;
+  sparkle: boolean;
+}
+
+/** 단계별 스케일·오라 (아트 교체 전 성장감 표현) */
+export const STAGE_VISUAL: Record<PetProfile['stage'], StageVisualStyle> = {
+  egg:    { scale: 0.88, glow: 'transparent', ring: 'rgba(255,255,255,0.15)', sparkle: false },
+  baby:   { scale: 0.92, glow: 'rgba(255,248,240,0.55)', ring: 'rgba(255,176,136,0.25)', sparkle: false },
+  child:  { scale: 1.00, glow: 'rgba(255,176,136,0.45)', ring: 'rgba(255,176,136,0.40)', sparkle: false },
+  teen:   { scale: 1.08, glow: 'rgba(200,182,255,0.50)', ring: 'rgba(167,139,250,0.45)', sparkle: false },
+  adult:  { scale: 1.14, glow: 'rgba(251,191,36,0.55)', ring: 'rgba(245,158,11,0.55)', sparkle: true },
+  mythic: { scale: 1.22, glow: 'rgba(167,139,250,0.65)', ring: 'rgba(244,114,182,0.65)', sparkle: true },
+};
+
+export function getStageVisual(stage: PetProfile['stage']): StageVisualStyle {
+  return STAGE_VISUAL[stage] ?? STAGE_VISUAL.baby;
+}
+
 // ===== 행동 로직 =====
 
 export function feedPet(state: GameState, itemId: string): GameState {
@@ -342,7 +387,7 @@ export function feedPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 8,
+      exp: state.pet.exp + applyEventExpBonus(8),
       intimacy: clamp(state.pet.intimacy + 1, 0, 100),
     },
     inventory: newInventory,
@@ -366,7 +411,7 @@ export function playWithPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 15,
+      exp: state.pet.exp + applyEventExpBonus(15),
       intimacy: clamp(state.pet.intimacy + 2, 0, 100),
     },
     coins: state.coins + 5,
@@ -386,7 +431,7 @@ export function cleanPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: isDirty ? state.pet.exp + 5 : state.pet.exp,
+      exp: isDirty ? state.pet.exp + applyEventExpBonus(5) : state.pet.exp,
       intimacy: isDirty ? clamp(state.pet.intimacy + 1, 0, 100) : state.pet.intimacy,
     },
     lastSaveTime: Date.now(),
@@ -405,7 +450,7 @@ export function sleepPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      exp: isTired ? state.pet.exp + 3 : state.pet.exp,
+      exp: isTired ? state.pet.exp + applyEventExpBonus(3) : state.pet.exp,
     },
     lastSaveTime: Date.now(),
   };
@@ -511,7 +556,7 @@ export function checkEvolution(pet: PetProfile): EvolutionResult | null {
     return { newSpecies: '레전드몬', newStage: 'adult', statBoosts: { power: 15, intelligence: 15, charm: 15, vitality: 15 } };
   }
 
-  // 2차 진화: 레전드몬(adult) Lv.50 + 주력 성향 기반 → Mythic 4종
+  // 전설 진화: 레전드몬(adult) Lv.40(확정) + 주력 성향 → Mythic 4종
   if (stage === 'adult' && level >= 40) {
     const dominant = getDominantTrait(traits);
     const mythicEvolutions: Record<string, EvolutionResult> = {
@@ -999,7 +1044,7 @@ export function claimMissionReward(
     coins: state.coins + mission.reward.coins,
     pet: {
       ...state.pet,
-      exp: state.pet.exp + mission.reward.exp,
+      exp: state.pet.exp + applyEventExpBonus(mission.reward.exp),
     },
     missions: { ...state.missions, missions: updatedMissions },
     lastSaveTime: Date.now(),
@@ -1317,7 +1362,7 @@ export function applyPuzzleReward(state: GameState, reward: PuzzleGameRewardResu
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + reward.exp,
+      exp: state.pet.exp + applyEventExpBonus(reward.exp),
       intimacy: clamp(state.pet.intimacy + 2, 0, 100),
     },
     coins: state.coins + reward.coins,
@@ -1414,7 +1459,7 @@ export function applyBallGameReward(state: GameState, reward: BallGameRewardResu
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + reward.totalExp,
+      exp: state.pet.exp + applyEventExpBonus(reward.totalExp),
       intimacy: clamp(state.pet.intimacy + 2, 0, 100),
     },
     coins: state.coins + reward.coins,

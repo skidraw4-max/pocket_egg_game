@@ -17,6 +17,8 @@ interface TopBarProps {
   nickname?: string;
   unclaimedMissions?: number;
   syncing?: boolean;
+  /** 주말 더블 EXP 배지 표시 */
+  weekendDoubleExp?: boolean;
 }
 
 export default function TopBar({
@@ -30,6 +32,7 @@ export default function TopBar({
   nickname,
   unclaimedMissions = 0,
   syncing = false,
+  weekendDoubleExp = false,
 }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
@@ -66,6 +69,22 @@ export default function TopBar({
 
         {/* 재화 표시 */}
         <div className="flex items-center gap-2">
+          {weekendDoubleExp && (
+            <div
+              className="flex items-center gap-1 px-2 py-1 rounded-full"
+              style={{
+                background: 'linear-gradient(135deg, rgba(251,191,36,0.95), rgba(244,114,182,0.9))',
+                border: '1px solid rgba(255,255,255,0.35)',
+                boxShadow: '0 2px 8px rgba(251,191,36,0.35)',
+              }}
+              title="주말 동안 EXP 2배!"
+            >
+              <span className="text-xs leading-none">🎉</span>
+              <span className="text-white font-extrabold text-[10px] tracking-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
+                EXP×2
+              </span>
+            </div>
+          )}
           {/* 코인 */}
           <div
             className="flex items-center gap-1 px-2.5 py-1 rounded-full"
