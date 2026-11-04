@@ -420,6 +420,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         friendCoins: prev.friendCoins ?? 0,
         nickname: prev.nickname ?? '',
         attendance: prev.attendance ?? INITIAL_GAME_STATE.attendance,
+        weekendShop: prev.weekendShop ?? INITIAL_GAME_STATE.weekendShop,
         eggColor: null,          // 뉴게임+는 가챠 알 사용
         gachaEgg: gachaEgg ?? null,
         // 가챠 알 패시브 성향 보너스 즉시 적용
@@ -455,6 +456,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       nickname: prev.nickname,
       attendance: prev.attendance,
       tutorialSeen: prev.tutorialSeen,
+      weekendShop: prev.weekendShop ?? INITIAL_GAME_STATE.weekendShop,
       // ── 알 선택 초기화 (룰렛 스핀 진입) ─────────────────────────────────────
       eggColor: null,
       gachaEgg: null,

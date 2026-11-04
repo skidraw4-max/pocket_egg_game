@@ -60,6 +60,15 @@ export interface GameState {
   ownedWallpapers: string[];               // 구매한 배경 ID 목록
   eggColor: string | null;                 // 선택형 알 색상 ID (최초 선택)
   gachaEgg: string | null;                 // 가챠형 알 ID (뉴게임+ 뽑기)
+  /** 주말 한정 상점 구매 기록 (주 단위 리셋) */
+  weekendShop: WeekendShopState;
+}
+
+export interface WeekendShopState {
+  /** Asia/Seoul 기준 주 키 (예: 2026-W45) */
+  weekKey: string;
+  /** 아이템 ID → 이번 주 구매 횟수 */
+  counts: Record<string, number>;
 }
 
 export interface IapPurchaseRecord {
@@ -285,6 +294,7 @@ export const INITIAL_GAME_STATE: GameState = {
   ownedWallpapers: [],
   eggColor: null,
   gachaEgg: null,
+  weekendShop: { weekKey: '', counts: {} },
 };
 // ===== 시간 경과 로직 =====
 
@@ -343,6 +353,90 @@ export function isWeekendDoubleExpActive(now: number = Date.now()): boolean {
 export function applyEventExpBonus(baseExp: number, now: number = Date.now()): number {
   if (baseExp <= 0) return 0;
   return isWeekendDoubleExpActive(now) ? Math.round(baseExp * 2) : baseExp;
+}
+
+/** Asia/Seoul ISO 주 키 (월요일이 주의 시작) */
+export function getSeoulWeekKey(now: number = Date.now()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(now));
+  const year = Number(parts.find(p => p.type === 'year')?.value);
+  const month = Number(parts.find(p => p.type === 'month')?.value);
+  const day = Number(parts.find(p => p.type === 'day')?.value);
+  // UTC 정오로 만들어 요일 계산 안정화
+  const utc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const dow = utc.getUTCDay(); // 0=일
+  const thursday = new Date(utc);
+  thursday.setUTCDate(utc.getUTCDate() + (4 - (dow || 7)));
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((thursday.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+/**
+ * 주말 한정 상점 활성: 금·토·일(KST)
+ * EXP 더블(토·일)보다 하루 일찍 열어 주말 분위기 조성
+ */
+export function isWeekendShopActive(now: number = Date.now()): boolean {
+  const day = getSeoulDayOfWeek(now);
+  return day === 5 || day === 6 || day === 0;
+}
+
+/** 주말 상점까지/종료까지 남은 ms (UI 카운트다운용) */
+export function getWeekendShopCountdownMs(now: number = Date.now()): { active: boolean; remainingMs: number; label: string } {
+  const day = getSeoulDayOfWeek(now);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(now));
+  const hour = Number(parts.find(p => p.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find(p => p.type === 'minute')?.value ?? 0);
+  const second = Number(parts.find(p => p.type === 'second')?.value ?? 0);
+  const msToday = ((hour * 60 + minute) * 60 + second) * 1000;
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (isWeekendShopActive(now)) {
+    // 다음 월요일 00:00까지 (일=0 → 1일, 토=6 → 2일, 금=5 → 3일)
+    const daysUntilMon = day === 0 ? 1 : day === 6 ? 2 : 3;
+    const remainingMs = daysUntilMon * dayMs - msToday;
+    return { active: true, remainingMs: Math.max(0, remainingMs), label: '특가 종료까지' };
+  }
+
+  // 다음 금요일 00:00까지
+  const daysUntilFri = day === 1 ? 4 : day === 2 ? 3 : day === 3 ? 2 : day === 4 ? 1 : 5;
+  // day 1 Mon → 4, Tue 2 → 3, Wed 3 → 2, Thu 4 → 1; if somehow others → 5
+  const remainingMs = daysUntilFri * dayMs - msToday;
+  return { active: false, remainingMs: Math.max(0, remainingMs), label: '특가 오픈까지' };
+}
+
+export function formatCountdown(ms: number): string {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (d > 0) return `${d}일 ${h}시간`;
+  if (h > 0) return `${h}시간 ${m}분`;
+  return `${Math.max(1, m)}분`;
+}
+
+export function normalizeWeekendShop(state: GameState, now: number = Date.now()): WeekendShopState {
+  const weekKey = getSeoulWeekKey(now);
+  const current = state.weekendShop ?? { weekKey: '', counts: {} };
+  if (current.weekKey !== weekKey) {
+    return { weekKey, counts: {} };
+  }
+  return current;
+}
+
+export function getWeekendShopPurchaseCount(state: GameState, itemId: string, now: number = Date.now()): number {
+  const shop = normalizeWeekendShop(state, now);
+  return shop.counts[itemId] ?? 0;
 }
 
 export interface StageVisualStyle {
@@ -674,7 +768,95 @@ export interface ShopItemDef {
   inventoryItem?: Omit<InventoryItem, 'quantity'>;
   /** 배경 이미지 URL (wallpaper 전용) */
   wallpaperUrl?: string;
+  /** 주말 한정 상점 전용 */
+  weekendOnly?: boolean;
+  /** 주간 구매 한도 (미설정 시 무제한, decor/wallpaper는 보유 여부로 제한) */
+  weeklyLimit?: number;
+  /** 특가 배지 문구 */
+  badge?: string;
 }
+
+/** 주말 한정 상점 카탈로그 (금~일 KST) */
+export const WEEKEND_SHOP_ITEMS: ShopItemDef[] = [
+  {
+    id: 'food_weekend_parfait',
+    name: '주말 복숭아 파르페',
+    type: 'food',
+    icon: '🍨',
+    price: 80,
+    currency: 'coins',
+    description: '주말 한정! 배고픔·기분을 듬뿍 채워줘요.',
+    weekendOnly: true,
+    weeklyLimit: 5,
+    badge: '주말특가',
+    inventoryItem: {
+      id: 'food_weekend_parfait',
+      name: '주말 복숭아 파르페',
+      type: 'food',
+      icon: '🍨',
+      effect: { hunger: 25, mood: 18 },
+      traitBonus: { charm: 3 },
+      description: '주말에만 살 수 있는 달콤한 파르페예요!',
+    },
+  },
+  {
+    id: 'toy_weekend_yoyo',
+    name: '무지개 요요',
+    type: 'toy',
+    icon: '🪀',
+    price: 120,
+    currency: 'coins',
+    description: '주말 한정 장난감! 힘과 매력을 길러줘요.',
+    weekendOnly: true,
+    weeklyLimit: 3,
+    badge: '한정',
+    inventoryItem: {
+      id: 'toy_weekend_yoyo',
+      name: '무지개 요요',
+      type: 'toy',
+      icon: '🪀',
+      effect: { mood: 28, fatigue: 12 },
+      traitBonus: { power: 4, charm: 2 },
+      description: '알록달록 요요로 신나게 놀아요!',
+    },
+  },
+  {
+    id: 'decor_weekend_balloon',
+    name: '주말 파티 풍선',
+    type: 'decor',
+    icon: '🎈',
+    price: 180,
+    currency: 'coins',
+    description: '방에 축하 분위기를 더하는 한정 가구.',
+    weekendOnly: true,
+    weeklyLimit: 1,
+    badge: '1회',
+  },
+  {
+    id: 'gem_weekend_pack',
+    name: '주말 젬 보따리',
+    type: 'food', // 인벤토리 아닌 즉시 젬 지급은 purchase에서 특수 처리
+    icon: '💎',
+    price: 250,
+    currency: 'coins',
+    description: '코인으로 젬 5개를 얻는 주말 한정 팩!',
+    weekendOnly: true,
+    weeklyLimit: 2,
+    badge: '가성비',
+  },
+  {
+    id: 'decor_weekend_friend_star',
+    name: '우정 별자리 램프',
+    type: 'decor',
+    icon: '🌠',
+    price: 40,
+    currency: 'friendCoins',
+    description: '친구 코인으로만 살 수 있는 주말 한정 가구.',
+    weekendOnly: true,
+    weeklyLimit: 1,
+    badge: '소셜',
+  },
+];
 
 export type FragmentExchangeReward =
   | { type: 'inventory'; item: Omit<InventoryItem, 'quantity'>; quantity: number }
@@ -762,7 +944,7 @@ export const RAINBOW_FRAGMENT_EXCHANGES: FragmentExchangeDef[] = [
 
 export type PurchaseResult =
   | { success: true; newState: GameState }
-  | { success: false; reason: 'insufficient_funds' | 'already_owned' };
+  | { success: false; reason: 'insufficient_funds' | 'already_owned' | 'event_closed' | 'weekly_limit' };
 
 export type GrantPurchasedGemsResult =
   | { success: true; newState: GameState }
@@ -773,6 +955,19 @@ export type FragmentExchangeResult =
   | { success: false; reason: 'not_found' | 'insufficient_fragments' | 'already_owned'; exchange?: FragmentExchangeDef };
 
 export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResult {
+  const now = Date.now();
+
+  // 주말 한정 상품 검사
+  if (item.weekendOnly) {
+    if (!isWeekendShopActive(now)) {
+      return { success: false, reason: 'event_closed' };
+    }
+    const bought = getWeekendShopPurchaseCount(state, item.id, now);
+    if (item.weeklyLimit != null && bought >= item.weeklyLimit) {
+      return { success: false, reason: 'weekly_limit' };
+    }
+  }
+
   // 재화 확인
   const balance =
     item.currency === 'coins' ? state.coins
@@ -787,6 +982,35 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
   const newGems        = item.currency === 'gems'        ? state.gems  - item.price : state.gems;
   const newFriendCoins = item.currency === 'friendCoins' ? (state.friendCoins ?? 0) - item.price : (state.friendCoins ?? 0);
 
+  const withWeekendCount = (next: GameState): GameState => {
+    if (!item.weekendOnly) return next;
+    const shop = normalizeWeekendShop(next, now);
+    return {
+      ...next,
+      weekendShop: {
+        weekKey: shop.weekKey,
+        counts: {
+          ...shop.counts,
+          [item.id]: (shop.counts[item.id] ?? 0) + 1,
+        },
+      },
+    };
+  };
+
+  // 주말 젬 보따리: 코인 지불 → 젬 즉시 지급
+  if (item.id === 'gem_weekend_pack') {
+    return {
+      success: true,
+      newState: withWeekendCount({
+        ...state,
+        coins: newCoins,
+        gems: newGems + 5,
+        friendCoins: newFriendCoins,
+        lastSaveTime: now,
+      }),
+    };
+  }
+
   // 배경(wallpaper) 처리: ownedWallpapers 배열에 추가 후 즉시 적용
   if (item.type === 'wallpaper') {
     const owned = state.ownedWallpapers ?? [];
@@ -795,7 +1019,7 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
     }
     return {
       success: true,
-      newState: {
+      newState: withWeekendCount({
         ...state,
         coins: newCoins,
         gems: newGems,
@@ -805,8 +1029,8 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
           ...state.room,
           wallpaper: item.id,
         },
-        lastSaveTime: Date.now(),
-      },
+        lastSaveTime: now,
+      }),
     };
   }
 
@@ -817,7 +1041,7 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
     }
     return {
       success: true,
-      newState: {
+      newState: withWeekendCount({
         ...state,
         coins: newCoins,
         gems: newGems,
@@ -826,8 +1050,8 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
           ...state.room,
           furniture: [...state.room.furniture, item.id],
         },
-        lastSaveTime: Date.now(),
-      },
+        lastSaveTime: now,
+      }),
     };
   }
 
@@ -848,27 +1072,27 @@ export function purchaseItem(state: GameState, item: ShopItemDef): PurchaseResul
 
     return {
       success: true,
-      newState: {
+      newState: withWeekendCount({
         ...state,
         coins: newCoins,
         gems: newGems,
         friendCoins: newFriendCoins,
         inventory: newInventory,
-        lastSaveTime: Date.now(),
-      },
+        lastSaveTime: now,
+      }),
     };
   }
 
   // inventoryItem 정의 없는 경우 재화만 차감
   return {
     success: true,
-    newState: {
+    newState: withWeekendCount({
       ...state,
       coins: newCoins,
       gems: newGems,
       friendCoins: newFriendCoins,
-      lastSaveTime: Date.now(),
-    },
+      lastSaveTime: now,
+    }),
   };
 }
 
@@ -1244,6 +1468,12 @@ export function loadGame(): GameState | null {
     // ownedWallpapers 필드 마이그레이션
     if (!Array.isArray(data.ownedWallpapers)) {
       data.ownedWallpapers = [];
+    }
+    // weekendShop 필드 마이그레이션
+    if (!data.weekendShop || typeof data.weekendShop !== 'object') {
+      data.weekendShop = { weekKey: '', counts: {} };
+    } else if (!data.weekendShop.counts || typeof data.weekendShop.counts !== 'object') {
+      data.weekendShop = { weekKey: data.weekendShop.weekKey ?? '', counts: {} };
     }
     // Google Play 결제 지급 기록 마이그레이션
     if (!data.iapPurchases || typeof data.iapPurchases !== 'object' || Array.isArray(data.iapPurchases)) {
