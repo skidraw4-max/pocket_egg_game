@@ -42,6 +42,8 @@ import {
   type FragmentExchangeResult,
   grantPurchasedGems,
   type GrantPurchasedGemsResult,
+  useSpecialAction,
+  type SpecialActionResult,
 } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import {
@@ -49,10 +51,6 @@ import {
   type GachaEggId,
   getSelectEgg,
   getGachaEgg,
-  applyExpPassive,
-  applyIntimacyPassive,
-  getStatusDecayMult,
-  getFatigueRecoveryMult,
 } from '@/lib/eggTypes';
 import { useFirebaseSync, type RankingEntry, type VisitorEntry, type FriendEntry, type RecommendEntry } from '@/hooks/useFirebaseSync';
 import { registerNickname } from '@/lib/firebase';
@@ -66,6 +64,7 @@ interface GameContextType {
   clean: () => void;
   sleep: () => void;
   touch: () => void;
+  usePetSpecialAction: () => SpecialActionResult;
   purchase: (item: ShopItemDef) => PurchaseResult;
   grantIapGems: (
     purchaseKey: string,
@@ -155,6 +154,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     loadFromCloud,
     linkGoogleAccount,
     signInWithGoogleForRestore,
+    setRemoteFriendCoins,
   } =
     useFirebaseSync(state);
 
@@ -163,14 +163,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!uid) return;
     loadFromCloud().then((cloudState) => {
       if (!cloudState) return;
-      const localSaved = (state as any)._savedAt ?? 0;
-      const cloudSaved = (cloudState as any)._savedAt ?? 0;
+      const localSaved = state._savedAt ?? state.lastSaveTime ?? 0;
+      const cloudSaved = cloudState._savedAt ?? cloudState.lastSaveTime ?? 0;
       if (cloudSaved > localSaved) {
         setState(calculateTimeSkip(cloudState));
+      } else {
+        // 클라우드 friendCoins 노드가 더 높으면 로컬에 반영
+        setState(prev => ({
+          ...prev,
+          friendCoins: Math.max(prev.friendCoins ?? 0, cloudState.friendCoins ?? 0),
+        }));
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  // Firebase friendCoins(방문/친구추가 보상) → 로컬 게임 상태 동기화
+  useEffect(() => {
+    if (!uid) return;
+    setState(prev => {
+      const local = prev.friendCoins ?? 0;
+      if (friendCoins === local) return prev;
+      // 보상으로 Firebase가 높아진 경우 로컬도 맞춤
+      if (friendCoins > local) {
+        return { ...prev, friendCoins };
+      }
+      return prev;
+    });
+  }, [friendCoins, uid]);
 
   // 액션 모션 타이머 (일정 시간 후 idle로 복귀)
   const triggerAction = useCallback((action: PetAction, duration = 2500) => {
@@ -315,6 +335,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(prev => touchPet(prev));
   }, [playSound, playVoice]);
 
+  const usePetSpecialAction = useCallback((): SpecialActionResult => {
+    const result = useSpecialAction(state);
+    if (result.success) {
+      playSound('playing');
+      playVoice('playing');
+      setState(prev => {
+        const current = useSpecialAction(prev);
+        return current.success ? checkProgression(current.newState) : prev;
+      });
+    }
+    return result;
+  }, [state, checkProgression, playSound, playVoice]);
+
   const purchase = useCallback((item: ShopItemDef): PurchaseResult => {
     // purchaseItem을 setState 외부에서 현재 state를 직접 참조하여 실행
     // setState 콜백은 비동기적으로 실행되므로 result를 콜백 내부에서 읽으면
@@ -324,12 +357,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setState(prev => {
         // 최신 prev 기준으로 재계산 (동시 업데이트 안전성 확보)
         const r = purchaseItem(prev, item);
-        if (r.success) return advanceMission(r.newState, 'shop');
+        if (r.success) {
+          // 친구 코인 지출 시 Firebase 잔액도 즉시 맞춤 (이중 소스 방지)
+          if (item.currency === 'friendCoins') {
+            void setRemoteFriendCoins(r.newState.friendCoins ?? 0);
+          }
+          return advanceMission(r.newState, 'shop');
+        }
         return prev;
       });
     }
     return result;
-  }, [state]);
+  }, [state, setRemoteFriendCoins]);
 
   const grantIapGems = useCallback((
     purchaseKey: string,
@@ -516,6 +555,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         clean,
         sleep,
         touch,
+        usePetSpecialAction,
         purchase,
         grantIapGems,
         exchangeRainbow,

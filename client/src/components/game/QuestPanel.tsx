@@ -121,7 +121,7 @@ function MissionCard({ mission, onClaim, onClaimAd }: MissionCardProps) {
       const result = await showRewardedAd();
       if (result.rewarded) {
         onClaimAd();
-        setAdToast('💎 젠 +1 획득! 광고 시청 감사해요 🎉');
+        setAdToast('💎 젬 +1 획득! 광고 시청 감사해요 🎉');
       } else if (result.reason === 'web_unsupported') {
         setAdToast('📱 광고는 Android 앱에서만 이용할 수 있어요.');
       } else if (result.reason === 'not_loaded') {

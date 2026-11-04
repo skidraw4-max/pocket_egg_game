@@ -5,8 +5,6 @@
  * [가챠형] 6종 알: 뉴게임+ 이후 확률 뽑기로 획득
  */
 
-import type { GrowthTraits, PetStatus } from './gameState';
-
 // ──────────────────────────────────────────────
 // 공통 타입
 // ──────────────────────────────────────────────
@@ -26,7 +24,7 @@ export type GachaEggId =
   | 'cosmos'    // 우주알
   | 'rainbow_g'; // 무지개알(가챠)
 
-/** 패시브 효과 타입 */
+/** 패시브 효과 타입 (gameState와 순환 import 방지를 위해 로컬 형태로 정의) */
 export interface EggPassive {
   /** 피로 감소 배율 (1.0 = 기본, 2.0 = 2배 빠름) */
   fatigueRecoveryMult?: number;
@@ -37,10 +35,10 @@ export interface EggPassive {
   /** 상태 감소 완화 배율 (1.0 = 기본, 0.7 = 30% 완화) */
   statusDecayMult?: number;
   /** 초기 성향 보너스 */
-  traitBonus?: Partial<GrowthTraits>;
+  traitBonus?: Partial<{ power: number; intelligence: number; charm: number; vitality: number }>;
   /** 초기 상태 보너스 */
-  statusBonus?: Partial<PetStatus>;
-  /** 특수 액션 ID (미래 확장용) */
+  statusBonus?: Partial<{ hunger: number; mood: number; clean: number; fatigue: number }>;
+  /** 특수 액션 ID */
   specialAction?: string;
 }
 
@@ -358,4 +356,82 @@ export function getFatigueRecoveryMult(eggColor?: EggColorId | null): number {
   if (!eggColor) return 1.0;
   const egg = getSelectEgg(eggColor);
   return egg.passiveEffect.fatigueRecoveryMult ?? 1.0;
+}
+
+/** 가챠 특수액션 메타 */
+export interface SpecialActionDef {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  cooldownMs: number;
+}
+
+/** 특수액션 쿨다운 (3시간) */
+export const SPECIAL_ACTION_COOLDOWN_MS = 3 * 60 * 60 * 1000;
+
+export const SPECIAL_ACTIONS: Record<string, SpecialActionDef> = {
+  fire_breath: {
+    id: 'fire_breath',
+    name: '파이어 브레스',
+    emoji: '🔥',
+    description: '기분 상승 + 힘 성향 보너스 (피로 소폭 증가)',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+  magic_reading: {
+    id: 'magic_reading',
+    name: '마법 독서',
+    emoji: '📘',
+    description: 'EXP 대량 획득 + 지능 성향 보너스',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+  fairy_dance: {
+    id: 'fairy_dance',
+    name: '요정 댄스',
+    emoji: '🧚',
+    description: '기분·친밀도 상승 + 매력 성향 보너스',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+  nature_heal: {
+    id: 'nature_heal',
+    name: '자연 치유',
+    emoji: '🌿',
+    description: '배고픔·청결 회복 + 활력 성향 보너스',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+  cosmos_drift: {
+    id: 'cosmos_drift',
+    name: '우주 유영',
+    emoji: '🌌',
+    description: '피로 대폭 회복 + 기분 회복',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+  rainbow_burst: {
+    id: 'rainbow_burst',
+    name: '무지개 폭발',
+    emoji: '🌈',
+    description: '전 상태·성향·EXP 종합 버프',
+    cooldownMs: SPECIAL_ACTION_COOLDOWN_MS,
+  },
+};
+
+/** 가챠 알에서 특수액션 정의 조회 */
+export function getSpecialActionForGacha(gachaEgg?: GachaEggId | null): SpecialActionDef | null {
+  if (!gachaEgg) return null;
+  const actionId = getGachaEgg(gachaEgg).passiveEffect.specialAction;
+  if (!actionId) return null;
+  return SPECIAL_ACTIONS[actionId] ?? null;
+}
+
+/** 저장값에서 선택/가챠 알 ID를 안전하게 캐스팅 */
+export function asEggColorId(value: string | null | undefined): EggColorId | null {
+  if (!value) return null;
+  const ids: EggColorId[] = ['red', 'blue', 'pink', 'green', 'rainbow'];
+  return ids.includes(value as EggColorId) ? (value as EggColorId) : null;
+}
+
+export function asGachaEggId(value: string | null | undefined): GachaEggId | null {
+  if (!value) return null;
+  const ids: GachaEggId[] = ['fire', 'wisdom', 'fairy', 'nature', 'cosmos', 'rainbow_g'];
+  return ids.includes(value as GachaEggId) ? (value as GachaEggId) : null;
 }

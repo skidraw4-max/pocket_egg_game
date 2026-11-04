@@ -3,6 +3,18 @@
  * Cozy Nursery 디자인 철학: 포근하고 생동감 있는 가상 반려 육성
  */
 
+import {
+  asEggColorId,
+  asGachaEggId,
+  applyExpPassive,
+  applyIntimacyPassive,
+  getFatigueRecoveryMult,
+  getSpecialActionForGacha,
+  getStatusDecayMult,
+  type EggColorId,
+  type GachaEggId,
+} from './eggTypes';
+
 // ===== 타입 정의 =====
 
 export interface PetStatus {
@@ -60,6 +72,9 @@ export interface GameState {
   ownedWallpapers: string[];               // 구매한 배경 ID 목록
   eggColor: string | null;                 // 선택형 알 색상 ID (최초 선택)
   gachaEgg: string | null;                 // 가챠형 알 ID (뉴게임+ 뽑기)
+  lastSpecialActionAt: number;             // 가챠 특수액션 마지막 사용 시각 (ms)
+  /** 클라우드/로컬 병합용 저장 시각 (saveGame에서 기록) */
+  _savedAt?: number;
 }
 
 export interface IapPurchaseRecord {
@@ -285,6 +300,7 @@ export const INITIAL_GAME_STATE: GameState = {
   ownedWallpapers: [],
   eggColor: null,
   gachaEgg: null,
+  lastSpecialActionAt: 0,
 };
 // ===== 시간 경과 로직 =====
 
@@ -295,6 +311,27 @@ const DECAY_RATES: Record<keyof PetStatus, number> = {
   fatigue: 3,    // 시간당 증가 (피로 누적)
 };
 
+function getEggIds(state: GameState): { eggColor: EggColorId | null; gachaEgg: GachaEggId | null } {
+  return {
+    eggColor: asEggColorId(state.eggColor),
+    gachaEgg: asGachaEggId(state.gachaEgg),
+  };
+}
+
+/** 알 패시브가 반영된 EXP 증가분 */
+function gainExp(state: GameState, baseExp: number): number {
+  if (baseExp <= 0) return 0;
+  const { eggColor, gachaEgg } = getEggIds(state);
+  return applyExpPassive(baseExp, eggColor, gachaEgg);
+}
+
+/** 알 패시브가 반영된 친밀도 증가분 */
+function gainIntimacy(state: GameState, baseIntimacy: number): number {
+  if (baseIntimacy <= 0) return 0;
+  const { eggColor } = getEggIds(state);
+  return applyIntimacyPassive(baseIntimacy, eggColor);
+}
+
 export function calculateTimeSkip(state: GameState): GameState {
   const now = Date.now();
   const elapsed = now - state.lastSaveTime;
@@ -302,11 +339,14 @@ export function calculateTimeSkip(state: GameState): GameState {
 
   if (hoursElapsed < 0.01) return state; // 36초 미만은 무시
 
+  const { eggColor } = getEggIds(state);
+  const decayMult = getStatusDecayMult(eggColor);
+
   const newStatus: PetStatus = {
-    hunger: clamp(state.status.hunger + DECAY_RATES.hunger * hoursElapsed, 0, 100),
-    mood: clamp(state.status.mood + DECAY_RATES.mood * hoursElapsed, 0, 100),
-    clean: clamp(state.status.clean + DECAY_RATES.clean * hoursElapsed, 0, 100),
-    fatigue: clamp(state.status.fatigue + DECAY_RATES.fatigue * hoursElapsed, 0, 100),
+    hunger: clamp(state.status.hunger + DECAY_RATES.hunger * hoursElapsed * decayMult, 0, 100),
+    mood: clamp(state.status.mood + DECAY_RATES.mood * hoursElapsed * decayMult, 0, 100),
+    clean: clamp(state.status.clean + DECAY_RATES.clean * hoursElapsed * decayMult, 0, 100),
+    fatigue: clamp(state.status.fatigue + DECAY_RATES.fatigue * hoursElapsed * decayMult, 0, 100),
   };
 
   // 상태가 나쁘면 기분 추가 감소
@@ -342,8 +382,8 @@ export function feedPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 8,
-      intimacy: clamp(state.pet.intimacy + 1, 0, 100),
+      exp: state.pet.exp + gainExp(state, 8),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, 1), 0, 100),
     },
     inventory: newInventory,
     lastSaveTime: Date.now(),
@@ -355,7 +395,12 @@ export function playWithPet(state: GameState, itemId: string): GameState {
   if (itemIndex === -1) return state;
 
   const item = state.inventory[itemIndex];
-  const newStatus = applyEffect(state.status, item.effect);
+  const { eggColor } = getEggIds(state);
+  const fatigueMult = getFatigueRecoveryMult(eggColor);
+  const effect = item.effect.fatigue
+    ? { ...item.effect, fatigue: (item.effect.fatigue || 0) * fatigueMult }
+    : item.effect;
+  const newStatus = applyEffect(state.status, effect);
   const newTraits = item.traitBonus
     ? applyTraitBonus(state.pet.traits, item.traitBonus)
     : state.pet.traits;
@@ -366,8 +411,8 @@ export function playWithPet(state: GameState, itemId: string): GameState {
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + 15,
-      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+      exp: state.pet.exp + gainExp(state, 15),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, 2), 0, 100),
     },
     coins: state.coins + 5,
     lastSaveTime: Date.now(),
@@ -377,17 +422,23 @@ export function playWithPet(state: GameState, itemId: string): GameState {
 export function cleanPet(state: GameState): GameState {
   // 방안 B: 청결 수치가 60 이하일 때만 EXP 지급 (진짜 더러울 때만 보상)
   const isDirty = state.status.clean <= 60;
+  const { eggColor } = getEggIds(state);
+  // 빨강알: 목욕 후 소량 피로 회복 (패시브 배율 적용)
+  const bathFatigueRecover = 5 * getFatigueRecoveryMult(eggColor);
   return {
     ...state,
     status: {
       ...state.status,
       clean: clamp(state.status.clean + 40, 0, 100),
       mood: clamp(state.status.mood + 5, 0, 100),
+      fatigue: clamp(state.status.fatigue - bathFatigueRecover, 0, 100),
     },
     pet: {
       ...state.pet,
-      exp: isDirty ? state.pet.exp + 5 : state.pet.exp,
-      intimacy: isDirty ? clamp(state.pet.intimacy + 1, 0, 100) : state.pet.intimacy,
+      exp: isDirty ? state.pet.exp + gainExp(state, 5) : state.pet.exp,
+      intimacy: isDirty
+        ? clamp(state.pet.intimacy + gainIntimacy(state, 1), 0, 100)
+        : state.pet.intimacy,
     },
     lastSaveTime: Date.now(),
   };
@@ -396,16 +447,18 @@ export function cleanPet(state: GameState): GameState {
 export function sleepPet(state: GameState): GameState {
   // 방안 B: 피로 수치가 40 이상일 때만 EXP 지급 (진짜 피곤할 때만 보상)
   const isTired = state.status.fatigue >= 40;
+  const { eggColor } = getEggIds(state);
+  const fatigueRecover = 50 * getFatigueRecoveryMult(eggColor);
   return {
     ...state,
     status: {
       ...state.status,
-      fatigue: clamp(state.status.fatigue - 50, 0, 100),
+      fatigue: clamp(state.status.fatigue - fatigueRecover, 0, 100),
       mood: clamp(state.status.mood + 10, 0, 100),
     },
     pet: {
       ...state.pet,
-      exp: isTired ? state.pet.exp + 3 : state.pet.exp,
+      exp: isTired ? state.pet.exp + gainExp(state, 3) : state.pet.exp,
     },
     lastSaveTime: Date.now(),
   };
@@ -420,7 +473,7 @@ export function touchPet(state: GameState): GameState {
     },
     pet: {
       ...state.pet,
-      intimacy: clamp(state.pet.intimacy + 0.5, 0, 100),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, 0.5), 0, 100),
     },
   };
 }
@@ -511,7 +564,7 @@ export function checkEvolution(pet: PetProfile): EvolutionResult | null {
     return { newSpecies: '레전드몬', newStage: 'adult', statBoosts: { power: 15, intelligence: 15, charm: 15, vitality: 15 } };
   }
 
-  // 2차 진화: 레전드몬(adult) Lv.50 + 주력 성향 기반 → Mythic 4종
+  // 최종 진화: 레전드몬(adult) Lv.40 + 주력 성향 기반 → Mythic 4종
   if (stage === 'adult' && level >= 40) {
     const dominant = getDominantTrait(traits);
     const mythicEvolutions: Record<string, EvolutionResult> = {
@@ -999,7 +1052,7 @@ export function claimMissionReward(
     coins: state.coins + mission.reward.coins,
     pet: {
       ...state.pet,
-      exp: state.pet.exp + mission.reward.exp,
+      exp: state.pet.exp + gainExp(state, mission.reward.exp),
     },
     missions: { ...state.missions, missions: updatedMissions },
     lastSaveTime: Date.now(),
@@ -1145,7 +1198,8 @@ export function applyCollectionReward(state: GameState, species: string): GameSt
 const SAVE_KEY = 'pocket_egg_save';
 
 export function saveGame(state: GameState): void {
-  const saveData = { ...state, lastSaveTime: Date.now() };
+  const now = Date.now();
+  const saveData = { ...state, lastSaveTime: now, _savedAt: now };
   localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
 }
 
@@ -1210,6 +1264,12 @@ export function loadGame(): GameState | null {
     }
     if (!('gachaEgg' in data)) {
       (data as GameState).gachaEgg = null;
+    }
+    if (typeof data.lastSpecialActionAt !== 'number') {
+      data.lastSpecialActionAt = 0;
+    }
+    if (typeof data._savedAt !== 'number') {
+      data._savedAt = data.lastSaveTime ?? Date.now();
     }
     return data;
   } catch {
@@ -1317,8 +1377,8 @@ export function applyPuzzleReward(state: GameState, reward: PuzzleGameRewardResu
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + reward.exp,
-      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+      exp: state.pet.exp + gainExp(state, reward.exp),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, 2), 0, 100),
     },
     coins: state.coins + reward.coins,
     inventory: addDroppedItemToInventory(state.inventory, reward.dropItem),
@@ -1414,11 +1474,137 @@ export function applyBallGameReward(state: GameState, reward: BallGameRewardResu
     pet: {
       ...state.pet,
       traits: newTraits,
-      exp: state.pet.exp + reward.totalExp,
-      intimacy: clamp(state.pet.intimacy + 2, 0, 100),
+      exp: state.pet.exp + gainExp(state, reward.totalExp),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, 2), 0, 100),
     },
     coins: state.coins + reward.coins,
     inventory: addDroppedItemToInventory(state.inventory, reward.dropItem),
     lastSaveTime: Date.now(),
   };
+}
+
+// ===== 가챠 특수액션 =====
+
+export interface SpecialActionResult {
+  success: boolean;
+  message: string;
+  newState: GameState;
+  remainingMs?: number;
+}
+
+/** 현재 사용 가능한 가챠 특수액션 정보 */
+export function getAvailableSpecialAction(state: GameState) {
+  const { gachaEgg } = getEggIds(state);
+  return getSpecialActionForGacha(gachaEgg);
+}
+
+export function getSpecialActionCooldownRemaining(state: GameState): number {
+  const action = getAvailableSpecialAction(state);
+  if (!action) return 0;
+  const elapsed = Date.now() - (state.lastSpecialActionAt ?? 0);
+  return Math.max(0, action.cooldownMs - elapsed);
+}
+
+/**
+ * 가챠 알 전용 특수액션 사용
+ * - 쿨다운: 3시간
+ */
+export function useSpecialAction(state: GameState): SpecialActionResult {
+  const action = getAvailableSpecialAction(state);
+  if (!action) {
+    return { success: false, message: '특수액션이 없어요. 뉴게임+ 가챠 알이 필요해요.', newState: state };
+  }
+
+  const remaining = getSpecialActionCooldownRemaining(state);
+  if (remaining > 0) {
+    const hours = Math.ceil(remaining / (60 * 60 * 1000));
+    return {
+      success: false,
+      message: `아직 쿨다운 중이에요. 약 ${hours}시간 후에 다시 쓸 수 있어요.`,
+      newState: state,
+      remainingMs: remaining,
+    };
+  }
+
+  let status = { ...state.status };
+  let traits = { ...state.pet.traits };
+  let expGain = 0;
+  let intimacyGain = 0;
+  let message = `${action.emoji} ${action.name}!`;
+
+  switch (action.id) {
+    case 'fire_breath':
+      status = {
+        ...status,
+        mood: clamp(status.mood + 18, 0, 100),
+        fatigue: clamp(status.fatigue + 8, 0, 100),
+      };
+      traits = applyTraitBonus(traits, { power: 3 });
+      expGain = 12;
+      message = '🔥 파이어 브레스! 힘이 불타올라요!';
+      break;
+    case 'magic_reading':
+      status = { ...status, mood: clamp(status.mood + 8, 0, 100) };
+      traits = applyTraitBonus(traits, { intelligence: 3 });
+      expGain = 28;
+      message = '📘 마법 독서! 지혜가 쌓여요!';
+      break;
+    case 'fairy_dance':
+      status = { ...status, mood: clamp(status.mood + 22, 0, 100) };
+      traits = applyTraitBonus(traits, { charm: 3 });
+      intimacyGain = 6;
+      expGain = 10;
+      message = '🧚 요정 댄스! 마음이 통했어요!';
+      break;
+    case 'nature_heal':
+      status = {
+        ...status,
+        hunger: clamp(status.hunger + 20, 0, 100),
+        clean: clamp(status.clean + 30, 0, 100),
+        mood: clamp(status.mood + 8, 0, 100),
+      };
+      traits = applyTraitBonus(traits, { vitality: 3 });
+      expGain = 10;
+      message = '🌿 자연 치유! 몸과 마음이 맑아져요!';
+      break;
+    case 'cosmos_drift':
+      status = {
+        ...status,
+        fatigue: clamp(status.fatigue - 45, 0, 100),
+        mood: clamp(status.mood + 12, 0, 100),
+      };
+      expGain = 15;
+      intimacyGain = 2;
+      message = '🌌 우주 유영! 피로가 씻겨 내려가요!';
+      break;
+    case 'rainbow_burst':
+      status = {
+        hunger: clamp(status.hunger + 15, 0, 100),
+        mood: clamp(status.mood + 15, 0, 100),
+        clean: clamp(status.clean + 15, 0, 100),
+        fatigue: clamp(status.fatigue - 15, 0, 100),
+      };
+      traits = applyTraitBonus(traits, { power: 2, intelligence: 2, charm: 2, vitality: 2 });
+      expGain = 22;
+      intimacyGain = 4;
+      message = '🌈 무지개 폭발! 모든 기운이 가득 차요!';
+      break;
+    default:
+      return { success: false, message: '알 수 없는 특수액션이에요.', newState: state };
+  }
+
+  const newState: GameState = {
+    ...state,
+    status,
+    pet: {
+      ...state.pet,
+      traits,
+      exp: state.pet.exp + gainExp(state, expGain),
+      intimacy: clamp(state.pet.intimacy + gainIntimacy(state, intimacyGain), 0, 100),
+    },
+    lastSpecialActionAt: Date.now(),
+    lastSaveTime: Date.now(),
+  };
+
+  return { success: true, message, newState };
 }

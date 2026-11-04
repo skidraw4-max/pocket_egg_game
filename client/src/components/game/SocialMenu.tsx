@@ -16,11 +16,13 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const {
-    ranking, visitors, friends, recommended, friendCoins,
+    ranking, visitors, friends, recommended,
     syncing, lastSynced, uid, gameId, state, isAnonymous, isGoogleLinked,
     visitFriend, addFriendByGameId, removeFriend, copyMyGameId,
     linkGoogleAccount, signInWithGoogleForRestore,
   } = useGame();
+  // 상점과 동일하게 로컬 gameState.friendCoins를 단일 소스로 사용
+  const friendCoins = state.friendCoins ?? 0;
 
   const [tab, setTab] = useState<Tab>('friends');
   const [addInput, setAddInput] = useState('');
