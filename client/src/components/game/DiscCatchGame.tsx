@@ -95,30 +95,39 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
     const fromLeft = Math.random() > 0.5;
     const startX = fromLeft ? -40 : rect.width + 40;
     const endX = fromLeft ? rect.width + 40 : -40;
-    const peakY = 40 + Math.random() * 80;
-    const landY = rect.height * 0.72;
+    const startY = 36 + Math.random() * 50; // 화면 위쪽
+    const landY = rect.height * 0.72;       // 캐치존 높이
     const duration = 1400 + Math.random() * 500;
     const start = performance.now();
     const targetLandX = (0.18 + Math.random() * 0.64) * rect.width;
+    const landT = 0.82; // 이 시점에 착지·캐치 판정
 
     resolvedRef.current = false;
 
     const frame = (now: number) => {
       if (!playingRef.current) return;
       const t = Math.min(1, (now - start) / duration);
-      const x = startX + (targetLandX - startX) * Math.min(1, t / 0.85);
-      const x2 = t > 0.85 ? targetLandX + (endX - targetLandX) * ((t - 0.85) / 0.15) : x;
-      const y = peakY + (landY - peakY) * (1 - 4 * (t - 0.5) * (t - 0.5));
+
+      // 수평: landT까지 착지점 도달 후 살짝 지나감
+      const x =
+        t <= landT
+          ? startX + (targetLandX - startX) * (t / landT)
+          : targetLandX + (endX - targetLandX) * ((t - landT) / (1 - landT));
+
+      // 수직: 위에서 아래로 낙하 + 중간 아치(살짝 띄움)
+      const fall = Math.min(1, t / landT);
+      const arch = Math.sin(Math.PI * fall) * 55; // 중간에 위로 들어 올림(top 감소)
+      const y = startY + (landY - startY) * fall - arch;
       const rot = t * 720;
 
-      setDiscPos({ x: x2, y: Math.max(30, y), rot });
+      setDiscPos({ x, y: Math.max(20, y), rot });
 
-      // 캐치 판정 창
-      if (t >= 0.72 && t <= 0.9 && !resolvedRef.current) {
+      // 착지 직전~직후 캐치 판정
+      if (t >= landT - 0.08 && t <= landT + 0.1 && !resolvedRef.current) {
         const petPx = petXRef.current * rect.width;
-        const dx = Math.abs(x2 - petPx);
+        const dx = Math.abs(x - petPx);
         const dy = Math.abs(y - landY);
-        if (dx <= CATCH_RADIUS && dy < 50) {
+        if (dx <= CATCH_RADIUS && dy < 70) {
           resolvedRef.current = true;
           const isPerfect = dx <= PERFECT_RADIUS;
           statsRef.current.catches += 1;
@@ -131,7 +140,7 @@ export default function DiscCatchGame({ onClose }: DiscCatchGameProps) {
           setCombo(statsRef.current.combo);
           setMaxCombo(statsRef.current.maxCombo);
 
-          spawnFx(isPerfect ? 'Perfect!' : 'Good!', isPerfect ? '#F59E0B' : '#60A5FA', x2, y - 20);
+          spawnFx(isPerfect ? 'Perfect!' : 'Good!', isPerfect ? '#F59E0B' : '#60A5FA', x, y - 20);
           setDiscPos(null);
           throwTimerRef.current = setTimeout(throwDisc, 450);
           return;

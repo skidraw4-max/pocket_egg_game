@@ -341,38 +341,38 @@
       const fromLeft = Math.random() > 0.5;
       const startX = fromLeft ? -40 : rect.width + 40;
       const endX = fromLeft ? rect.width + 40 : -40;
-      const peakY = 40 + Math.random() * 80;
+      const startY = 36 + Math.random() * 50;
       const landY = rect.height * 0.72;
-      const duration = 1400 + Math.random() * 500; // 1.4~1.9s — 공놀이보다 여유+난이도
+      const duration = 1400 + Math.random() * 500; // 1.4~1.9s
       const start = performance.now();
-
       const targetLandX = (0.18 + Math.random() * 0.64) * rect.width;
-      // 원반이 targetLandX 근처를 지나도록 베지어 느낌의 선형+아치
+      const landT = 0.82;
+
       function frame(now) {
         const t = Math.min(1, (now - start) / duration);
-        const ease = t;
-        const x = startX + (targetLandX - startX) * Math.min(1, ease / 0.85);
-        // 착지 후 살짝 지나감
-        const x2 = t > 0.85 ? targetLandX + (endX - targetLandX) * ((t - 0.85) / 0.15) : x;
-        const y = peakY + (landY - peakY) * (1 - 4 * (t - 0.5) * (t - 0.5)); // parabola-ish
-        discEl.style.left = x2 + 'px';
-        discEl.style.top = Math.max(30, y) + 'px';
+        const x = t <= landT
+          ? startX + (targetLandX - startX) * (t / landT)
+          : targetLandX + (endX - targetLandX) * ((t - landT) / (1 - landT));
+        const fall = Math.min(1, t / landT);
+        const arch = Math.sin(Math.PI * fall) * 55;
+        const y = startY + (landY - startY) * fall - arch;
+        discEl.style.left = x + 'px';
+        discEl.style.top = Math.max(20, y) + 'px';
         discEl.style.transform = `rotate(${t * 720}deg) scale(${1 - t * 0.1})`;
 
-        // catch window near landing
-        if (t >= 0.72 && t <= 0.9 && !discEl.dataset.resolved) {
+        if (t >= landT - 0.08 && t <= landT + 0.1 && !discEl.dataset.resolved) {
           const petPx = petX * rect.width;
-          const dx = Math.abs(x2 - petPx);
+          const dx = Math.abs(x - petPx);
           const dy = Math.abs(y - landY);
-          if (dx <= CATCH_RADIUS && dy < 50) {
+          if (dx <= CATCH_RADIUS && dy < 70) {
             discEl.dataset.resolved = '1';
             const perfect = dx <= 28;
             if (perfect) {
               perfects++; catches++; combo++;
-              spawnFx('Perfect!', '#F59E0B', x2, y - 20);
+              spawnFx('Perfect!', '#F59E0B', x, y - 20);
             } else {
               goods++; catches++; combo++;
-              spawnFx('Good!', '#60A5FA', x2, y - 20);
+              spawnFx('Good!', '#60A5FA', x, y - 20);
             }
             maxCombo = Math.max(maxCombo, combo);
             scorePill.textContent = `캐치 ${catches}`;
