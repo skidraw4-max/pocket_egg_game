@@ -201,4 +201,60 @@ export const TUTORIALS: Record<string, TutorialData> = {
     ],
     tip: '처음엔 한쪽 구역부터 천천히 뒤집어 위치를 기억해보세요. 이미 본 카드는 다시 탭하지 않도록 집중!',
   },
+
+  toy_disc: {
+    gameId: 'toy_disc',
+    gameIcon: '🥏',
+    gameTitle: '원반 캐치',
+    subtitle: '날아오는 원반을 타이밍에 맞춰 받으세요!',
+    steps: [
+      {
+        icon: '👈👉',
+        title: '좌우로 이동',
+        description: '화면을 좌우로 드래그하거나 탭해서 반려몬을 움직이세요. 원반이 떨어지는 위치를 예측하는 게 핵심이에요!',
+      },
+      {
+        icon: '🎯',
+        title: 'Perfect / Good / Miss',
+        description: '캐치존 중심에 맞으면 Perfect, 가장자리에 들어오면 Good, 위치가 어긋나면 Miss예요.',
+      },
+      {
+        icon: '🔥',
+        title: '연속 캐치 콤보',
+        description: '연속으로 캐치에 성공하면 콤보가 쌓여 추가 EXP를 받아요. Miss가 나면 콤보가 리셋됩니다.',
+      },
+      {
+        icon: '💪',
+        title: '힘 성향 성장',
+        description: '원반 캐치는 힘(Power) 성향을 키워줘요. 공놀이보다 조금 더 집중이 필요하지만 보상도 알차요!',
+      },
+    ],
+    rewards: [
+      {
+        grade: '🏆 퍼펙트',
+        condition: '≥92% + P5',
+        reward: '코인 22 + EXP 30 + 🌈 30%',
+        color: 'border-yellow-400 bg-yellow-50',
+      },
+      {
+        grade: '⭐ 우수',
+        condition: '≥75%',
+        reward: '코인 15 + EXP 24 + ✨ 20%',
+        color: 'border-blue-300 bg-blue-50',
+      },
+      {
+        grade: '✅ 일반',
+        condition: '≥50%',
+        reward: '코인 10 + EXP 18',
+        color: 'border-green-300 bg-green-50',
+      },
+      {
+        grade: '🎀 완성',
+        condition: '~49%',
+        reward: '코인 6 + EXP 12',
+        color: 'border-gray-200 bg-gray-50',
+      },
+    ],
+    tip: '원반이 날아오는 초반에 착지 지점을 예측하고, 캐치 직전 위치를 미세 조정하면 Perfect가 잘 나와요!',
+  },
 };

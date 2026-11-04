@@ -1,6 +1,6 @@
 {
   "name": "pocket-egg-game",
-  "version": "1.11.23",
+  "version": "1.12.0",
   "type": "module",
   "license": "MIT",
   "scripts": {

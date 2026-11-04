@@ -9,6 +9,7 @@ import PuzzleGame from '@/components/game/PuzzleGame';
 import BallGame from '@/components/game/BallGame';
 import RibbonGame from '@/components/game/RibbonGame';
 import LeafFlipGame from '@/components/game/LeafFlipGame';
+import DiscCatchGame from '@/components/game/DiscCatchGame';
 import GameTutorialCard from '@/components/game/GameTutorialCard';
 import { TUTORIALS } from '@/lib/tutorialData';
 import { PLAY_TOY_IDS, getInventoryCatalogItem } from '@/lib/cloudState';
@@ -32,6 +33,7 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   const [showBallGame, setShowBallGame] = useState(false);
   const [showRibbonGame, setShowRibbonGame] = useState(false);
   const [showLeafFlipGame, setShowLeafFlipGame] = useState(false);
+  const [showDiscCatch, setShowDiscCatch] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   /** 장난감 클릭 핸들러 — tutorialSeen 여부에 따라 분기 */
@@ -56,6 +58,8 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
       setShowRibbonGame(true);
     } else if (itemId === 'toy_leaf') {
       setShowLeafFlipGame(true);
+    } else if (itemId === 'toy_disc') {
+      setShowDiscCatch(true);
     } else {
       play(itemId);
       onClose();
@@ -96,6 +100,11 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   // 잎사귀 뒤집기 게임 화면
   if (showLeafFlipGame) {
     return <LeafFlipGame onClose={onClose} />;
+  }
+
+  // 원반 캐치 게임 화면
+  if (showDiscCatch) {
+    return <DiscCatchGame onClose={onClose} />;
   }
 
   // 튜토리얼 카드 오버레이 (장난감 목록 위에 표시)
