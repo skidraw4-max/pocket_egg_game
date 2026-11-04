@@ -7,6 +7,7 @@ import { useGame } from '@/contexts/GameContext';
 import { useState } from 'react';
 import PuzzleGame from '@/components/game/PuzzleGame';
 import BallGame from '@/components/game/BallGame';
+import DiscCatchGame from '@/components/game/DiscCatchGame';
 import GameTutorialCard from '@/components/game/GameTutorialCard';
 import { TUTORIALS } from '@/lib/tutorialData';
 
@@ -19,6 +20,7 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   const toyItems = state.inventory.filter(i => i.type === 'toy');
   const [showPuzzle, setShowPuzzle] = useState(false);
   const [showBallGame, setShowBallGame] = useState(false);
+  const [showDiscCatch, setShowDiscCatch] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   /** 장난감 클릭 핸들러 — tutorialSeen 여부에 따라 분기 */
@@ -39,6 +41,8 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
       setShowPuzzle(true);
     } else if (itemId === 'toy_ball') {
       setShowBallGame(true);
+    } else if (itemId === 'toy_disc') {
+      setShowDiscCatch(true);
     } else {
       play(itemId);
       onClose();
@@ -69,6 +73,11 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   // 공놀이 게임 화면
   if (showBallGame) {
     return <BallGame onClose={onClose} />;
+  }
+
+  // 원반 캐치 게임 화면
+  if (showDiscCatch) {
+    return <DiscCatchGame onClose={onClose} />;
   }
 
   // 튜토리얼 카드 오버레이 (장난감 목록 위에 표시)

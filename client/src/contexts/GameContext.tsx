@@ -38,6 +38,8 @@ import {
   type BallGameRewardResult,
   applyPuzzleReward,
   type PuzzleGameRewardResult,
+  applyDiscCatchReward,
+  type DiscCatchRewardResult,
   exchangeRainbowFragments,
   type FragmentExchangeResult,
   grantPurchasedGems,
@@ -112,6 +114,7 @@ interface GameContextType {
   setTutorialSeen: (gameId: string, seen: boolean) => void;
   playBallGame: (reward: BallGameRewardResult) => void;
   playPuzzleGame: (reward: PuzzleGameRewardResult) => void;
+  playDiscCatchGame: (reward: DiscCatchRewardResult) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -284,6 +287,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, [checkProgression, triggerAction, playSound, playVoice]);
 
+  /** 원반 캐치 등급별 차등 보상 적용 */
+  const playDiscCatchGame = useCallback((reward: DiscCatchRewardResult) => {
+    triggerAction('playing', 3000);
+    playSound('playing');
+    playVoice('playing');
+    setState(prev => {
+      const next = applyDiscCatchReward(prev, reward);
+      const result = checkProgression(next);
+      if (result.pet.level > prev.pet.level) setTimeout(() => playVoice('levelup'), 500);
+      return advanceMission(result, 'play');
+    });
+  }, [checkProgression, triggerAction, playSound, playVoice]);
+
   const clean = useCallback(() => {
     triggerAction('cleaning', 2500);
     playSound('cleaning');
@@ -420,6 +436,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         friendCoins: prev.friendCoins ?? 0,
         nickname: prev.nickname ?? '',
         attendance: prev.attendance ?? INITIAL_GAME_STATE.attendance,
+        weekendShop: prev.weekendShop ?? INITIAL_GAME_STATE.weekendShop,
         eggColor: null,          // 뉴게임+는 가챠 알 사용
         gachaEgg: gachaEgg ?? null,
         // 가챠 알 패시브 성향 보너스 즉시 적용
@@ -455,6 +472,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       nickname: prev.nickname,
       attendance: prev.attendance,
       tutorialSeen: prev.tutorialSeen,
+      weekendShop: prev.weekendShop ?? INITIAL_GAME_STATE.weekendShop,
       // ── 알 선택 초기화 (룰렛 스핀 진입) ─────────────────────────────────────
       eggColor: null,
       gachaEgg: null,
@@ -554,6 +572,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setTutorialSeen,
       playBallGame,
       playPuzzleGame,
+      playDiscCatchGame,
       setEggColor,
     }}
     >

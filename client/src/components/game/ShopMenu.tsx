@@ -7,7 +7,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   RAINBOW_FRAGMENT_EXCHANGES,
   RAINBOW_FRAGMENT_ID,
+  WEEKEND_SHOP_ITEMS,
+  formatCountdown,
   getInventoryQuantity,
+  getWeekendShopCountdownMs,
+  getWeekendShopPurchaseCount,
+  isWeekendShopActive,
   type FragmentExchangeDef,
   type InventoryItem,
   type ShopItemDef,
@@ -27,7 +32,7 @@ interface ShopMenuProps {
   onClose: () => void;
 }
 
-type TabType = 'diamond' | 'food' | 'toy' | 'decor' | 'wallpaper' | 'social' | 'inventory' | 'exchange';
+type TabType = 'weekend' | 'diamond' | 'food' | 'toy' | 'decor' | 'wallpaper' | 'social' | 'inventory' | 'exchange';
 type InventorySectionType = Extract<InventoryItem['type'], 'food' | 'toy' | 'special'>;
 
 const INVENTORY_SECTIONS: { id: InventorySectionType; label: string; icon: string; emptyText: string }[] = [
@@ -190,6 +195,24 @@ const SHOP_ITEMS: ShopItemDef[] = [
     },
   },
   {
+    id: 'toy_disc',
+    name: '원반',
+    type: 'toy',
+    icon: '🥏',
+    price: 120,
+    currency: 'coins',
+    description: '힘으로 캐치하는 원반',
+    inventoryItem: {
+      id: 'toy_disc',
+      name: '원반',
+      type: 'toy',
+      icon: '🥏',
+      effect: { mood: 22, fatigue: 18 },
+      traitBonus: { power: 4 },
+      description: '원반 캐치로 힘을 길러요!',
+    },
+  },
+  {
     id: 'toy_ribbon',
     name: '리본 장난감',
     type: 'toy',
@@ -330,9 +353,12 @@ interface Toast {
 
 export default function ShopMenu({ onClose }: ShopMenuProps) {
   const { state, purchase, exchangeRainbow, grantIapGems, uid, gameId } = useGame();
-  const [activeTab, setActiveTab] = useState<TabType>('diamond');
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    isWeekendShopActive() ? 'weekend' : 'diamond'
+  );
   const [toast, setToast] = useState<Toast | null>(null);
   const [previewWallpaper, setPreviewWallpaper] = useState<string | null>(null);
+  const [weekendCountdown, setWeekendCountdown] = useState(() => getWeekendShopCountdownMs());
   const [diamondProducts, setDiamondProducts] = useState<DiamondCatalogProduct[]>(() => getDiamondCatalog());
   const [billingStatus, setBillingStatus] = useState<'unsupported' | 'initializing' | 'ready' | 'error'>(
     () => (isGooglePlayBillingAvailable() ? 'initializing' : 'unsupported')
@@ -343,6 +369,7 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
   const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
   const grantIapGemsRef = useRef(grantIapGems);
 
+  const isWeekendTab = activeTab === 'weekend';
   const isDiamondTab = activeTab === 'diamond';
   const isSocialTab = activeTab === 'social';
   const isWallpaperTab = activeTab === 'wallpaper';
@@ -352,14 +379,24 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
   const inventoryItems = state.inventory.filter(item => item.quantity > 0);
   const inventoryTotalQty = inventoryItems.reduce((total, item) => total + item.quantity, 0);
   const hasInventoryItems = inventoryTotalQty > 0;
+  const weekendShopOpen = weekendCountdown.active;
 
-  const currentItems = isSocialTab
+  const currentItems = isWeekendTab
+    ? WEEKEND_SHOP_ITEMS
+    : isSocialTab
     ? SOCIAL_ITEMS
     : isWallpaperTab
       ? WALLPAPER_ITEMS
       : isDiamondTab || isExchangeTab || isInventoryTab
         ? []
       : SHOP_ITEMS.filter(item => item.type === activeTab);
+
+  useEffect(() => {
+    const tick = () => setWeekendCountdown(getWeekendShopCountdownMs());
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const showToast = (message: string, type: ToastType) => {
     setToast({ message, type });
@@ -419,6 +456,11 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
   }, []);
 
   const handlePurchase = (item: ShopItemDef) => {
+    if (item.weekendOnly && !weekendShopOpen) {
+      showToast('주말 특가는 금~일에만 열려요!', 'info');
+      return;
+    }
+
     const result = purchase(item);
 
     if (!result.success) {
@@ -431,11 +473,27 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
         );
       } else if (result.reason === 'already_owned') {
         showToast('이미 보유 중이에요!', 'info');
+      } else if (result.reason === 'event_closed') {
+        showToast('주말 특가가 종료됐어요. 다음 금요일에 만나요!', 'info');
+      } else if (result.reason === 'weekly_limit') {
+        showToast('이번 주 구매 한도에 도달했어요!', 'info');
       }
       return;
     }
 
-    showToast(`${item.name} 구매 완료! 배경이 적용됐어요 🎉`, 'success');
+    const toastMsg =
+      item.id === 'gem_weekend_pack'
+        ? `${item.name} 구매 완료! 젬 +5 💎`
+        : item.type === 'wallpaper'
+          ? `${item.name} 구매 완료! 배경이 적용됐어요 🎉`
+          : item.type === 'food'
+            ? `${item.name} 구매 완료! 인벤토리에 추가됐어요 🍽️`
+            : item.type === 'toy'
+              ? `${item.name} 구매 완료! 이제 놀아줄 수 있어요 🎾`
+              : item.type === 'decor'
+                ? `${item.name} 구매 완료! 방에 배치됐어요 🏠`
+                : `${item.name} 구매 완료! 🎉`;
+    showToast(toastMsg, 'success');
   };
 
   const handleExchange = (exchange: FragmentExchangeDef) => {
@@ -490,6 +548,11 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
     return false;
   };
 
+  const isWeeklyLimitReached = (item: ShopItemDef) => {
+    if (!item.weekendOnly || item.weeklyLimit == null) return false;
+    return getWeekendShopPurchaseCount(state, item.id) >= item.weeklyLimit;
+  };
+
   const isActiveWallpaper = (item: ShopItemDef) => {
     return item.type === 'wallpaper' && state.room?.wallpaper === item.id;
   };
@@ -519,6 +582,7 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
   };
 
   const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: 'weekend', label: '주말특가', icon: '🎁' },
     { id: 'diamond', label: '다이아', icon: '💎' },
     { id: 'food', label: '먹이', icon: '🍖' },
     { id: 'toy', label: '장난감', icon: '🎾' },
@@ -587,7 +651,9 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 activeTab === tab.id
-                  ? tab.id === 'diamond'
+                  ? tab.id === 'weekend'
+                    ? 'bg-gradient-to-r from-amber-400 to-pink-400 text-white'
+                  : tab.id === 'diamond'
                     ? 'bg-gradient-to-r from-sky-400 to-violet-400 text-white'
                     : tab.id === 'social'
                     ? 'bg-purple-500 text-white'
@@ -606,6 +672,34 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
             </button>
           ))}
         </div>
+
+        {/* 주말특가 탭 안내 배너 */}
+        {isWeekendTab && (
+          <div
+            className="mb-3 rounded-2xl px-3 py-2.5 flex items-center gap-2"
+            style={{
+              background: weekendShopOpen
+                ? 'linear-gradient(135deg, rgba(251,191,36,0.18), rgba(244,114,182,0.15))'
+                : 'rgba(148,163,184,0.12)',
+              border: weekendShopOpen
+                ? '1px solid rgba(251,191,36,0.45)'
+                : '1px solid rgba(148,163,184,0.3)',
+            }}
+          >
+            <span className="text-lg">{weekendShopOpen ? '🎉' : '🔒'}</span>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-warm-brown">
+                {weekendShopOpen ? '주말 특가 진행 중! (금~일)' : '주말 특가 잠금 중'}
+              </p>
+              <p className="text-xs text-sub-brown">
+                {weekendCountdown.label}{' '}
+                <span className="font-bold text-peach">
+                  {formatCountdown(weekendCountdown.remainingMs)}
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 다이아 탭 안내 배너 */}
         {isDiamondTab && (
@@ -962,42 +1056,66 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
             })}
           </div>
         ) : (
-          /* 일반 상품 목록 (food / toy / decor / social) */
+          /* 일반 상품 목록 (weekend / food / toy / decor / social) */
           <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 pb-2">
             {currentItems.map(item => {
               const owned = isOwned(item);
               const affordable = canAfford(item);
-              const qty = item.type !== 'decor' ? getInventoryQty(item.id) : null;
+              const qty = item.type !== 'decor' && item.id !== 'gem_weekend_pack'
+                ? getInventoryQty(item.id)
+                : null;
+              const limitReached = isWeeklyLimitReached(item);
+              const boughtCount = item.weekendOnly
+                ? getWeekendShopPurchaseCount(state, item.id)
+                : 0;
+              const lockedByEvent = Boolean(item.weekendOnly && !weekendShopOpen);
+              const purchaseDisabled = owned || limitReached || lockedByEvent;
 
               return (
                 <button
                   key={item.id}
-                  onClick={() => !owned && handlePurchase(item)}
-                  disabled={owned}
+                  onClick={() => !purchaseDisabled && handlePurchase(item)}
+                  disabled={purchaseDisabled}
                   className={`
                     relative flex flex-col items-center gap-1 p-3 rounded-2xl border
                     transition-all duration-150
-                    ${owned
+                    ${purchaseDisabled
                       ? 'bg-muted/50 border-border opacity-60 cursor-default'
                       : affordable
                         ? item.currency === 'friendCoins'
                           ? 'bg-purple-50 border-purple-200 active:scale-95'
+                          : item.weekendOnly
+                            ? 'bg-amber-50 border-amber-200 cushion-btn active:scale-95'
                           : 'bg-cream border-border cushion-btn active:scale-95'
                         : 'bg-cream border-border cushion-btn active:scale-95 opacity-70'
                     }
                   `}
                 >
-                  {/* 소셜 전용 뱃지 */}
-                  {item.currency === 'friendCoins' && !owned && (
-                    <span className="absolute top-2 left-2 text-[9px] bg-purple-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-                      소셜
+                  {/* 주말/소셜 뱃지 */}
+                  {(item.badge || (item.currency === 'friendCoins' && !owned)) && !owned && (
+                    <span
+                      className={`absolute top-2 left-2 text-[9px] text-white px-1.5 py-0.5 rounded-full font-bold ${
+                        item.weekendOnly ? 'bg-amber-500' : 'bg-purple-500'
+                      }`}
+                    >
+                      {item.badge ?? '소셜'}
                     </span>
                   )}
 
-                  {/* 보유 중 뱃지 */}
+                  {/* 보유/한도/잠금 뱃지 */}
                   {owned && (
                     <span className="absolute top-2 right-2 text-[10px] bg-mint text-warm-brown px-1.5 py-0.5 rounded-full font-bold">
                       보유
+                    </span>
+                  )}
+                  {!owned && limitReached && (
+                    <span className="absolute top-2 right-2 text-[10px] bg-sub-brown text-white px-1.5 py-0.5 rounded-full font-bold">
+                      한도
+                    </span>
+                  )}
+                  {!owned && lockedByEvent && (
+                    <span className="absolute top-2 right-2 text-[10px] bg-slate-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      잠금
                     </span>
                   )}
 
@@ -1011,6 +1129,14 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
                   <span className="text-3xl">{item.icon}</span>
                   <span className="text-xs font-semibold text-warm-brown text-center">{item.name}</span>
                   <span className="text-[10px] text-sub-brown text-center">{item.description}</span>
+                  {qty != null && qty > 0 && (
+                    <span className="text-[10px] text-mint font-semibold">보유 {qty}</span>
+                  )}
+                  {item.weekendOnly && item.weeklyLimit != null && (
+                    <span className="text-[10px] text-amber-600 font-semibold">
+                      이번 주 {boughtCount}/{item.weeklyLimit}
+                    </span>
+                  )}
 
                   {/* 가격 */}
                   <div className={`flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full ${
@@ -1024,9 +1150,11 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
                     }`}>
                       {item.price}
                     </span>
-                    {!affordable && (
+                    {lockedByEvent ? (
+                      <span className="text-[9px] text-sub-brown">금~일</span>
+                    ) : !affordable ? (
                       <span className="text-[9px] text-sub-brown">부족</span>
-                    )}
+                    ) : null}
                   </div>
                 </button>
               );

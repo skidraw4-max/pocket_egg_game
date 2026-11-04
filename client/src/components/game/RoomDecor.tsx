@@ -72,6 +72,22 @@ const DECOR_PLACEMENTS: Record<string, DecorPlacement> = {
     fontSize: '8rem',
     animation: 'float',
   },
+  decor_weekend_balloon: {
+    icon: '🎈',
+    name: '주말 파티 풍선',
+    left: '72%',
+    top: '40%',
+    fontSize: '7.5rem',
+    animation: 'float',
+  },
+  decor_weekend_friend_star: {
+    icon: '🌠',
+    name: '우정 별자리 램프',
+    left: '8%',
+    top: '12%',
+    fontSize: '6.5rem',
+    animation: 'twinkle',
+  },
   decor_cloud_bed: {
     icon: '☁️',
     name: '구름 침대',

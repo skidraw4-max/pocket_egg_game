@@ -11,7 +11,7 @@
  * 6. idle: 기본 상태
  */
 import { useGame, PetAction } from '@/contexts/GameContext';
-import { PetProfile, PetStatus, getCharacterImage } from '@/lib/gameState';
+import { PetProfile, PetStatus, getCharacterImage, getStageVisual } from '@/lib/gameState';
 import { useSound } from '@/hooks/useSound';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import ChatBubble from './ChatBubble';
@@ -161,6 +161,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
   const effectEmoji = gameCurrentAction !== 'idle' ? ACTION_EFFECT[gameCurrentAction] : null;
   const emotionBubble = gameCurrentAction === 'idle' ? EMOTION_BUBBLE[emotion] : null;
+  const stageVisual = getStageVisual(pet.stage);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -179,22 +180,44 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         className="relative cursor-pointer"
         onClick={handleTouch}
         style={{
-          transform: isTouched ? 'scale(1.08)' : 'scale(1)',
+          transform: isTouched
+            ? `scale(${stageVisual.scale * 1.06})`
+            : `scale(${stageVisual.scale})`,
           transition: 'transform 300ms cubic-bezier(0.23, 1, 0.32, 1)',
         }}
       >
+        {/* 단계 오라 */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+          style={{
+            width: '78%',
+            height: '78%',
+            boxShadow: `0 0 36px 10px ${stageVisual.glow}`,
+            border: `2px solid ${stageVisual.ring}`,
+            opacity: isSleeping ? 0.25 : 0.85,
+          }}
+        />
+
         <img
           src={petImage}
           alt={pet.name}
-          className="w-56 h-56 object-contain drop-shadow-2xl"
+          className="w-56 h-56 object-contain drop-shadow-2xl relative z-10"
           style={{ animation: petAnimation }}
           key={`${pet.species}-${pet.stage}-${gameCurrentAction}-${emotion}`}
         />
 
+        {stageVisual.sparkle && !isSleeping && (
+          <div className="absolute inset-0 pointer-events-none z-20">
+            <span className="absolute top-4 left-6 text-sm animate-particle-1">✨</span>
+            <span className="absolute top-8 right-8 text-xs animate-particle-2">⭐</span>
+            <span className="absolute bottom-12 right-4 text-sm animate-particle-3">✨</span>
+          </div>
+        )}
+
         {/* 감정 오버레이 이모지 — 종족 이미지 위에 표시 */}
         {emotionOverlayEmoji && (
           <div
-            className="absolute bottom-10 right-2 text-3xl pointer-events-none select-none"
+            className="absolute bottom-10 right-2 text-3xl pointer-events-none select-none z-20"
             style={{ animation: 'emotion-overlay-pop 0.4s ease-out forwards' }}
           >
             {emotionOverlayEmoji}
@@ -203,7 +226,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
         {/* 액션 이펙트 파티클 */}
         {effectEmoji && (
-          <div className="absolute inset-0 pointer-events-none overflow-visible">
+          <div className="absolute inset-0 pointer-events-none overflow-visible z-20">
             <span className="absolute top-0 left-2 text-xl animate-particle-1">{effectEmoji}</span>
             <span className="absolute top-4 right-0 text-lg animate-particle-2">{effectEmoji}</span>
             <span className="absolute bottom-8 left-0 text-base animate-particle-3">{effectEmoji}</span>
@@ -213,7 +236,7 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
 
         {/* 하트 이펙트 (터치) */}
         {showHeart && (
-          <div className="absolute -top-4 left-1/2 -translate-x-1/2 animate-float-up">
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 animate-float-up z-20">
             <span className="text-2xl">💕</span>
           </div>
         )}
