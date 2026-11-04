@@ -18,21 +18,17 @@ type AppScreen = 'title' | 'egg_select' | 'game';
 function GameShell() {
   const { state, setEggColor, resetPet } = useGame();
 
-  // 세션 단위로 타이틀 표시 여부 결정
+  // 저장 데이터 기준 초기 화면 (앱 재실행 시 알 선택으로 돌아가는 문제 방지)
   const [screen, setScreen] = useState<AppScreen>(() => {
-    try {
-      if (sessionStorage.getItem('pocket_egg_session_started') === 'true') {
-        return 'game';
-      }
-    } catch { /* ignore */ }
+    if (state.eggColor !== null || state.gachaEgg !== null) {
+      return 'game';
+    }
     return 'title';
   });
 
   /** 타이틀 → 알 선택 (신규) 또는 게임 (기존 유저) */
   const handleTitleStart = () => {
-    // 이미 알을 선택한 기존 유저는 바로 게임으로
     if (state.eggColor !== null || state.gachaEgg !== null) {
-      try { sessionStorage.setItem('pocket_egg_session_started', 'true'); } catch { /* ignore */ }
       setScreen('game');
     } else {
       setScreen('egg_select');
@@ -42,7 +38,6 @@ function GameShell() {
   /** 새로 키우기 → 알 선택 스핀으로 이동 */
   const handleResetPet = () => {
     resetPet(() => {
-      try { sessionStorage.removeItem('pocket_egg_session_started'); } catch { /* ignore */ }
       setScreen('egg_select');
     });
   };
@@ -50,14 +45,13 @@ function GameShell() {
   /** 알 선택 완료 → 게임 시작 */
   const handleEggSelect = (eggColor: EggColorId) => {
     setEggColor(eggColor);
-    try { sessionStorage.setItem('pocket_egg_session_started', 'true'); } catch { /* ignore */ }
     setScreen('game');
   };
 
   return (
     <div className="relative w-full h-full">
-      {/* 게임 메인 화면 (항상 마운트) */}
-      <Home onResetPet={handleResetPet} />
+      {/* 게임 메인 — 알/타이틀 중에는 마운트하지 않음 (에러·튜토리얼·BGM 겹침 방지) */}
+      {screen === 'game' && <Home onResetPet={handleResetPet} />}
 
       {/* 알 선택 화면 */}
       {screen === 'egg_select' && (

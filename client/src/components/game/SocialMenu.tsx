@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGame } from '@/contexts/GameContext';
+import { resolveSocialNickname } from '@/hooks/useFirebaseSync';
+import FriendRoomPreviewModal from '@/components/game/FriendRoomPreviewModal';
 
 type Tab = 'friends' | 'ranking' | 'visitors' | 'sync';
 
@@ -19,7 +21,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
     ranking, visitors, friends, recommended, friendCoins,
     syncing, lastSynced, uid, gameId, state, isAnonymous, isGoogleLinked,
     visitFriend, addFriendByGameId, removeFriend, copyMyGameId,
-    linkGoogleAccount, signInWithGoogleForRestore,
+    linkGoogleAccount, restoreGoogleAccountWithChoice,
   } = useGame();
 
   const [tab, setTab] = useState<Tab>('friends');
@@ -31,10 +33,29 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const [accountLoading, setAccountLoading] = useState<'link' | 'restore' | null>(null);
   const [accountStatus, setAccountStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [previewFriend, setPreviewFriend] = useState<{ uid: string; name: string } | null>(null);
 
-  const myNickname = (state.nickname && state.nickname.trim())
-    ? state.nickname.trim()
-    : (state.pet?.name ?? '알 주인');
+  // 배열 방어 처리 (Firebase 연결 전 undefined 대응)
+  const safeFriends = Array.isArray(friends) ? friends : [];
+  const safeRanking = Array.isArray(ranking) ? ranking : [];
+  const safeVisitors = Array.isArray(visitors) ? visitors : [];
+  const safeRecommended = Array.isArray(recommended) ? recommended : [];
+  const friendUids = new Set(safeFriends.map((f) => f.uid));
+
+  const myNickname = resolveSocialNickname(state.nickname, gameId);
+
+  const rankingNicknameByUid = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of safeRanking) {
+      map.set(entry.uid, resolveSocialNickname(entry.nickname, entry.gameId));
+    }
+    return map;
+  }, [safeRanking]);
+
+  const displaySocialName = (
+    entry: { uid: string; nickname?: string; gameId?: string },
+  ) => rankingNicknameByUid.get(entry.uid)
+    ?? resolveSocialNickname(entry.nickname, entry.gameId);
 
   // ── 친구 추가 ──────────────────────────────
   const handleAdd = async () => {
@@ -82,27 +103,20 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
   };
 
   const handleRestoreGoogle = async () => {
-    const ok = window.confirm(
-      '기존 Google 계정의 클라우드 저장 데이터를 불러옵니다.\n현재 기기의 익명 진행도는 연결되지 않습니다. 계속할까요?'
-    );
-    if (!ok) return;
     setAccountLoading('restore');
     setAccountStatus(null);
-    const result = await signInWithGoogleForRestore();
-    setAccountStatus({ type: result.success ? 'success' : 'error', msg: result.message });
+    const result = await restoreGoogleAccountWithChoice();
+    if (!result.needsChoice) {
+      setAccountStatus({ type: result.success ? 'success' : 'error', msg: result.message });
+    } else {
+      setAccountStatus({ type: 'success', msg: result.message });
+    }
     setAccountLoading(null);
   };
 
-  // 배열 방어 처리 (Firebase 연결 전 undefined 대응)
-  const safeFriends = Array.isArray(friends) ? friends : [];
-  const safeRanking = Array.isArray(ranking) ? ranking : [];
-  const safeVisitors = Array.isArray(visitors) ? visitors : [];
-  const safeRecommended = Array.isArray(recommended) ? recommended : [];
-  const friendUids = new Set(safeFriends.map((f) => f.uid));
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overlay-screen">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[min(90dvh,100%)]">
 
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-4 flex items-center justify-between flex-shrink-0">
@@ -138,7 +152,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* 탭 콘텐츠 */}
-        <div className="p-4 overflow-y-auto flex-1 space-y-4">
+        <div className="p-4 overflow-y-auto flex-1 min-h-0 space-y-4 pb-app-safe">
 
           {/* ── 친구 탭 ── */}
           {tab === 'friends' && (
@@ -183,7 +197,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                     <div key={r.uid} className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
                       <span className="text-xl">{STAGE_EMOJI[r.stage] ?? '🥚'}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{r.nickname}</p>
+                        <p className="font-semibold text-gray-800 text-sm truncate">{displaySocialName(r)}</p>
                         <p className="text-xs text-gray-400">Lv.{r.level} · #{r.gameId}</p>
                       </div>
                       <button
@@ -214,7 +228,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                     <div key={f.uid} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                       <span className="text-xl">{STAGE_EMOJI[f.stage] ?? '🥚'}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 text-sm truncate">{f.nickname}</p>
+                        <p className="font-semibold text-gray-800 text-sm truncate">{displaySocialName(f)}</p>
                         <p className="text-xs text-gray-400">Lv.{f.level} · #{f.gameId}</p>
                         {visitStatus?.uid === f.uid && (
                           <p className="text-xs text-green-500 mt-0.5">{visitStatus.msg}</p>
@@ -222,11 +236,17 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                       </div>
                       <div className="flex gap-1.5">
                         <button
+                          onClick={() => setPreviewFriend({ uid: f.uid, name: displaySocialName(f) })}
+                          className="bg-purple-100 hover:bg-purple-200 text-purple-600 text-xs font-semibold rounded-xl px-2.5 py-1.5 transition-colors"
+                        >
+                          방문하기
+                        </button>
+                        <button
                           onClick={() => handleVisit(f.uid)}
                           disabled={visitingUid === f.uid}
                           className="bg-pink-100 hover:bg-pink-200 text-pink-600 text-xs font-semibold rounded-xl px-2.5 py-1.5 transition-colors disabled:opacity-50"
                         >
-                          {visitingUid === f.uid ? '...' : '방문'}
+                          {visitingUid === f.uid ? '...' : '선물하기'}
                         </button>
                         <button
                           onClick={() => removeFriend(f.uid)}
@@ -245,7 +265,8 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                 <p className="text-xs font-semibold text-blue-600">🤝 친구 코인 보상</p>
                 {[
                   ['친구 추가 성공', '양쪽 모두 50개'],
-                  ['친구 방문', '10개 (1일 1회)'],
+                  ['친구 선물하기', '10개 (1일 1회)'],
+                  ['친구 방 좋아요', '양쪽 5개 (1일 1회)'],
                   ['친구 3명 달성', '보너스 100개'],
                   ['친구 10명 달성', '보너스 300개'],
                 ].map(([label, reward]) => (
@@ -283,7 +304,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                     <span className="text-2xl">{STAGE_EMOJI[entry.stage] ?? '🥚'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 text-sm truncate">
-                        {entry.nickname}
+                        {displaySocialName(entry)}
                         {entry.uid === uid && <span className="ml-1 text-xs text-purple-500">(나)</span>}
                       </p>
                       <p className="text-xs text-gray-400">
@@ -309,7 +330,7 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                   <div key={v.uid + v.visitedAt} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                     <span className="text-2xl">👤</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 text-sm truncate">{v.nickname}</p>
+                      <p className="font-semibold text-gray-800 text-sm truncate">{displaySocialName(v)}</p>
                       <p className="text-xs text-gray-400">
                         {new Date(v.visitedAt).toLocaleString('ko-KR', {
                           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -341,24 +362,25 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">
-                  Google 계정을 연결하면 현재 UID가 유지되어 진행도, 아이템, 구매 기록을 다른 기기에서 이어받을 수 있습니다.
+                  <strong>연결</strong>은 지금 기기 데이터를 Google 계정에 백업합니다.
+                  <strong> 불러오기</strong>는 Google 클라우드와 이 기기 데이터를 비교해 선택할 수 있습니다.
                 </p>
                 {!isGoogleLinked && (
                   <div className="space-y-2">
                     <button
                       onClick={handleLinkGoogle}
                       disabled={!!accountLoading}
-                      className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 text-white text-xs font-bold rounded-xl py-2.5 transition-colors"
+                      className="w-full bg-white hover:bg-emerald-50 disabled:bg-gray-100 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl py-2.5 transition-colors"
                     >
-                      {accountLoading === 'link' ? '연결 중...' : 'Google 계정 연결'}
+                      {accountLoading === 'link' ? '연결 중...' : 'Google 계정 연결 (현재 데이터 백업)'}
                     </button>
                     {isAnonymous && (
                       <button
                         onClick={handleRestoreGoogle}
                         disabled={!!accountLoading}
-                        className="w-full bg-white hover:bg-emerald-100 disabled:bg-gray-100 text-emerald-600 border border-emerald-200 text-xs font-bold rounded-xl py-2.5 transition-colors"
+                        className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 text-white text-xs font-bold rounded-xl py-2.5 transition-colors"
                       >
-                        {accountLoading === 'restore' ? '로그인 중...' : '기존 Google 계정으로 복원'}
+                        {accountLoading === 'restore' ? '불러오는 중...' : 'Google 계정 데이터 불러오기'}
                       </button>
                     )}
                   </div>
@@ -426,6 +448,14 @@ export default function SocialMenu({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+
+      {previewFriend && (
+        <FriendRoomPreviewModal
+          targetUid={previewFriend.uid}
+          displayName={previewFriend.name}
+          onClose={() => setPreviewFriend(null)}
+        />
+      )}
     </div>
   );
 }

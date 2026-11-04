@@ -3,7 +3,31 @@
     "players": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        "profile": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "gameState": {
+          ".read": "auth != null && (auth.uid === $uid || root.child('friends/' + auth.uid + '/' + $uid).exists())",
+          ".write": "auth != null && auth.uid === $uid",
+          "iapPurchases": {
+            ".validate": "!newData.exists() || (data.exists() && newData.val() === data.val())"
+          }
+        },
+        "friendCoins": {
+          ".write": "auth != null && (auth.uid === $uid || (root.child('friends/' + $uid + '/' + auth.uid).exists() && newData.isNumber() && (newData.val() === (data.exists() ? data.val() + 50 : 50) || newData.val() === (data.exists() ? data.val() + 5 : 5))))"
+        },
+        "friendCountBonus": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "iap": {
+          ".write": false
+        }
+      }
+    },
+    "iapReceipts": {
+      "$receiptId": {
+        ".read": false,
+        ".write": false
       }
     },
     "ranking": {
@@ -12,11 +36,44 @@
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "leaderboard": {
+      "top20": {
+        ".read": "auth != null",
+        ".write": false
+      },
+      "meta": {
+        ".read": "auth != null",
+        ".write": false
+      }
+    },
     "visits": {
       "$targetUid": {
+        ".read": "auth != null && auth.uid === $targetUid",
         "$visitorUid": {
           ".read": "auth != null && (auth.uid === $targetUid || auth.uid === $visitorUid)",
           ".write": "auth != null && auth.uid === $visitorUid"
+        }
+      }
+    },
+    "visitLog": {
+      "$visitorUid": {
+        "$targetUid": {
+          "$date": {
+            ".read": "auth != null && auth.uid === $visitorUid",
+            ".write": "auth != null && auth.uid === $visitorUid",
+            ".validate": "newData.val() === true"
+          }
+        }
+      }
+    },
+    "likeLog": {
+      "$likerUid": {
+        "$targetUid": {
+          "$date": {
+            ".read": "auth != null && auth.uid === $likerUid",
+            ".write": "auth != null && auth.uid === $likerUid",
+            ".validate": "newData.val() === true"
+          }
         }
       }
     },
@@ -38,6 +95,16 @@
       ".read": "auth != null",
       "$nicknameKey": {
         ".write": "auth != null"
+      }
+    },
+    "adminAudit": {
+      ".read": false,
+      ".write": false
+    },
+    "config": {
+      "roomLayouts": {
+        ".read": "auth != null",
+        ".write": false
       }
     }
   }

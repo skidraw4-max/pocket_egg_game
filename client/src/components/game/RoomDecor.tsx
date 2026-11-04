@@ -1,195 +1,461 @@
 /**
- * RoomDecor - 방 꾸미기 가구 렌더링 레이어
- * Cozy Nursery: 구매한 가구를 방 배경 위에 배치
- *
- * 레이어 구조:
- *  - 배경 이미지: z-0
- *  - 가구 (배경 가구): z-[2]  ← 캐릭터(z-10)보다 반드시 낮게
- *  - 콘텐츠 레이어(TopBar, PetDisplay 등): z-10
+
+ * RoomDecor - Room Stage 내부 가구 렌더링
+
  */
 
-interface DecorPlacement {
-  /** 이모지 */
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import type { PlacedDecor } from '@/lib/gameState';
+
+import { getDecorMeta } from '@/lib/decorRegistry';
+
+import { getLayoutPlacement } from '@/data/roomLayouts';
+
+import { decorFontSizeRem } from '@/lib/roomAssets';
+
+
+
+export interface ResolvedDecorItem {
+
+  id: string;
+
   icon: string;
-  /** 가구 이름 */
+
   name: string;
-  /** 좌측 기준 위치 (%) */
-  left: string;
-  /** 상단 기준 위치 (%) */
-  top: string;
-  /**
-   * 이모지 폰트 크기 (rem 단위 직접 지정)
-   * 캐릭터 이미지가 약 w-56(14rem=224px) 수준이므로
-   * 가구는 6rem~10rem 범위로 설정해 존재감을 확보
-   */
-  fontSize: string;
-  /** 추가 인라인 스타일 */
-  extraStyle?: React.CSSProperties;
-  /** 애니메이션 */
-  animation?: 'float' | 'sway' | 'twinkle' | 'none';
+
+  x: number;
+
+  y: number;
+
+  scale: number;
+
+  scaleX: number;
+
+  scaleY: number;
+
+  rotation: number;
+
+  flipX: boolean;
+
+  zIndex: number;
+
+  animation: 'float' | 'sway' | 'twinkle' | 'none';
+
 }
 
-/** 가구 ID별 배치 정의 */
-const DECOR_PLACEMENTS: Record<string, DecorPlacement> = {
-  // ── 일반 가구 ──────────────────────────────────────────────
-  decor_flower: {
-    icon: '🌸',
-    name: '꽃 화분',
-    left: '4%',
-    top: '48%',
-    fontSize: '7rem',
-    animation: 'sway',
-  },
-  decor_star: {
-    icon: '🌟',
-    name: '별 조명',
-    left: '76%',
-    top: '8%',
-    fontSize: '6rem',
-    animation: 'twinkle',
-  },
-  decor_sofa: {
-    icon: '🛋️',
-    name: '푹신한 소파',
-    left: '55%',
-    top: '52%',
-    fontSize: '9rem',
-    animation: 'none',
-  },
-  decor_bookshelf: {
-    icon: '📚',
-    name: '동화나라 책장',
-    left: '2%',
-    top: '16%',
-    fontSize: '8rem',
-    animation: 'none',
-  },
-  decor_rainbow: {
-    icon: '🌈',
-    name: '무지개 창문',
-    left: '68%',
-    top: '22%',
-    fontSize: '8rem',
-    animation: 'float',
-  },
-  decor_cloud_bed: {
-    icon: '☁️',
-    name: '구름 침대',
-    left: '10%',
-    top: '56%',
-    fontSize: '9rem',
-    animation: 'float',
-  },
 
-  // ── 소셜 전용 가구 ─────────────────────────────────────────
-  social_golden_stand: {
-    icon: '🏆',
-    name: '황금 알 받침대',
-    left: '72%',
-    top: '50%',
-    fontSize: '7rem',
-    animation: 'twinkle',
-  },
-  social_photo_frame: {
-    icon: '🖼️',
-    name: '친구 사진 액자',
-    left: '3%',
-    top: '30%',
-    fontSize: '7rem',
-    animation: 'none',
-  },
-  social_rainbow_carpet: {
-    icon: '🌈',
-    name: '무지개 카펫',
-    left: '30%',
-    top: '72%',
-    fontSize: '10rem',
-    animation: 'none',
-    extraStyle: { transform: 'scaleY(0.45) scaleX(1.3)', transformOrigin: 'bottom center' },
-  },
-  social_star_mobile: {
-    icon: '✨',
-    name: '별빛 모빌',
-    left: '42%',
-    top: '5%',
-    fontSize: '6rem',
-    animation: 'float',
-  },
-  social_crown_cushion: {
-    icon: '👑',
-    name: '왕관 쿠션',
-    left: '60%',
-    top: '62%',
-    fontSize: '6rem',
-    animation: 'sway',
-  },
-  social_trophy: {
-    icon: '🥇',
-    name: '소셜 트로피',
-    left: '78%',
-    top: '48%',
-    fontSize: '7rem',
-    animation: 'twinkle',
-  },
-};
+
+function resolveItem(
+
+  decorId: string,
+
+  wallpaperId: string,
+
+  userPlacements?: PlacedDecor[],
+
+): ResolvedDecorItem | null {
+
+  const meta = getDecorMeta(decorId);
+
+  if (!meta) return null;
+
+
+
+  const user = userPlacements?.find(p => p.id === decorId);
+
+  const preset = getLayoutPlacement(wallpaperId, decorId);
+
+  if (!user && !preset) return null;
+
+
+
+  if (user) {
+
+    return {
+
+      id: decorId,
+
+      icon: meta.icon,
+
+      name: meta.name,
+
+      x: user.x,
+
+      y: user.y,
+
+      scale: user.scale,
+
+      scaleX: preset?.scaleX ?? 1,
+
+      scaleY: preset?.scaleY ?? 1,
+
+      rotation: user.rotation ?? 0,
+
+      flipX: user.flipX ?? false,
+
+      zIndex: user.zIndex ?? preset?.zIndex ?? 2,
+
+      animation: meta.animation,
+
+    };
+
+  }
+
+
+
+  const p = preset!;
+
+  return {
+
+    id: decorId,
+
+    icon: meta.icon,
+
+    name: meta.name,
+
+    x: p.x,
+
+    y: p.y,
+
+    scale: p.scale,
+
+    scaleX: p.scaleX ?? 1,
+
+    scaleY: p.scaleY ?? 1,
+
+    rotation: p.rotation ?? 0,
+
+    flipX: p.flipX ?? false,
+
+    zIndex: p.zIndex ?? 2,
+
+    animation: meta.animation,
+
+  };
+
+}
+
+
+
+export function resolveDecorItems(
+
+  furniture: string[],
+
+  wallpaperId: string,
+
+  placements?: PlacedDecor[],
+
+  hiddenDecor?: string[],
+
+  includeHidden = false,
+
+): ResolvedDecorItem[] {
+
+  if (!furniture?.length) return [];
+
+  const hidden = new Set(hiddenDecor ?? []);
+
+  return furniture
+
+    .filter(id => includeHidden || !hidden.has(id))
+
+    .map(id => resolveItem(id, wallpaperId, placements))
+
+    .filter((item): item is ResolvedDecorItem => item != null)
+
+    .sort((a, b) => a.zIndex - b.zIndex);
+
+}
+
+
 
 interface RoomDecorProps {
+
+  wallpaperId: string;
+
   furniture: string[];
+
+  placements?: PlacedDecor[];
+
+  hiddenDecor?: string[];
+
+  editMode?: boolean;
+
+  selectedId?: string | null;
+
+  onSelect?: (decorId: string | null) => void;
+
+  onMove?: (decorId: string, x: number, y: number) => void;
+
+  className?: string;
+
 }
 
-export default function RoomDecor({ furniture }: RoomDecorProps) {
-  if (!furniture || !Array.isArray(furniture) || furniture.length === 0) return null;
+
+
+export default function RoomDecor({
+
+  wallpaperId,
+
+  furniture,
+
+  placements,
+
+  hiddenDecor,
+
+  editMode = false,
+
+  selectedId = null,
+
+  onSelect,
+
+  onMove,
+
+  className = '',
+
+}: RoomDecorProps) {
+
+  const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  const [stageWidth, setStageWidth] = useState(360);
+
+
+
+  useEffect(() => {
+
+    const el = stageRef.current;
+
+    if (!el) return;
+
+    const ro = new ResizeObserver(entries => {
+
+      const w = entries[0]?.contentRect.width;
+
+      if (w && w > 0) setStageWidth(w);
+
+    });
+
+    ro.observe(el);
+
+    setStageWidth(el.getBoundingClientRect().width || 360);
+
+    return () => ro.disconnect();
+
+  }, []);
+
+
+
+  const items = resolveDecorItems(furniture, wallpaperId, placements, hiddenDecor);
+
+  const clamp = (v: number) => Math.min(0.98, Math.max(0.02, v));
+
+
+
+  const handlePointerDown = useCallback(
+
+    (e: React.PointerEvent, item: ResolvedDecorItem) => {
+
+      if (!editMode || !onMove) return;
+
+      e.preventDefault();
+
+      e.stopPropagation();
+
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+      dragRef.current = {
+
+        id: item.id,
+
+        startX: e.clientX,
+
+        startY: e.clientY,
+
+        origX: item.x,
+
+        origY: item.y,
+
+      };
+
+      onSelect?.(item.id);
+
+    },
+
+    [editMode, onMove, onSelect],
+
+  );
+
+
+
+  const handlePointerMove = useCallback(
+
+    (e: React.PointerEvent) => {
+
+      if (!dragRef.current || !stageRef.current || !onMove) return;
+
+      const rect = stageRef.current.getBoundingClientRect();
+
+      onMove(
+
+        dragRef.current.id,
+
+        clamp(dragRef.current.origX + (e.clientX - dragRef.current.startX) / rect.width),
+
+        clamp(dragRef.current.origY + (e.clientY - dragRef.current.startY) / rect.height),
+
+      );
+
+    },
+
+    [onMove],
+
+  );
+
+
+
+  const handlePointerUp = useCallback(() => {
+
+    dragRef.current = null;
+
+  }, []);
+
+
+
+  if (items.length === 0) return null;
+
+
 
   return (
-    <>
-      {furniture.map(id => {
-        const p = DECOR_PLACEMENTS[id];
-        if (!p) return null;
+
+    <div
+
+      ref={stageRef}
+
+      className={`absolute inset-0 ${className}`}
+
+      onPointerMove={editMode ? handlePointerMove : undefined}
+
+      onPointerUp={editMode ? handlePointerUp : undefined}
+
+      onPointerCancel={editMode ? handlePointerUp : undefined}
+
+      onClick={editMode ? () => onSelect?.(null) : undefined}
+
+    >
+
+      {items.map(item => {
 
         const animClass =
-          p.animation === 'float'   ? 'animate-decor-float'   :
-          p.animation === 'sway'    ? 'animate-decor-sway'    :
-          p.animation === 'twinkle' ? 'animate-decor-twinkle' : '';
+
+          !editMode && item.animation === 'float' ? 'animate-decor-float'
+
+          : !editMode && item.animation === 'sway' ? 'animate-decor-sway'
+
+          : !editMode && item.animation === 'twinkle' ? 'animate-decor-twinkle'
+
+          : '';
+
+
+
+        const flip = item.flipX ? -1 : 1;
+
+        const fontSize = decorFontSizeRem(stageWidth, item.scale);
+
+        const isSelected = editMode && selectedId === item.id;
+
+
 
         return (
+
           <div
-            key={id}
-            className={`absolute pointer-events-none select-none ${animClass}`}
+
+            key={item.id}
+
+            className={`absolute select-none ${editMode ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'} ${animClass} ${isSelected ? 'ring-4 ring-purple-400/80 rounded-2xl' : ''}`}
+
             style={{
-              left: p.left,
-              top: p.top,
-              fontSize: p.fontSize,
+
+              left: `${item.x * 100}%`,
+
+              top: `${item.y * 100}%`,
+
+              fontSize,
+
               lineHeight: 1,
-              /* 캐릭터(z-10)보다 반드시 낮은 z-index로 배경에 배치 */
-              zIndex: 2,
+
+              zIndex: item.zIndex,
+
+              transform: `translate(-50%, -50%) rotate(${item.rotation}deg) scaleX(${flip * item.scaleX}) scaleY(${item.scaleY})`,
+
+              transformOrigin: 'center center',
+
               filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.22))',
-              ...p.extraStyle,
+
+              touchAction: editMode ? 'none' : undefined,
+
             }}
-            title={p.name}
+
+            title={item.name}
+
+            onPointerDown={editMode ? e => handlePointerDown(e, item) : undefined}
+
+            onClick={editMode ? e => e.stopPropagation() : undefined}
+
           >
-            {p.icon}
+
+            {item.icon}
+
           </div>
+
         );
+
       })}
 
+
+
       <style>{`
+
         @keyframes decor-float {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-12px); }
+
+          0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+
+          50%       { transform: translate(-50%, -50%) translateY(-12px); }
+
         }
+
         @keyframes decor-sway {
-          0%, 100% { transform: rotate(-5deg) scale(1); }
-          50%       { transform: rotate(5deg) scale(1.05); }
+
+          0%, 100% { transform: translate(-50%, -50%) rotate(-5deg); }
+
+          50%       { transform: translate(-50%, -50%) rotate(5deg); }
+
         }
+
         @keyframes decor-twinkle {
-          0%, 100% { opacity: 1;    transform: scale(1); }
-          30%       { opacity: 0.55; transform: scale(0.88); }
-          60%       { opacity: 1;    transform: scale(1.12); }
+
+          0%, 100% { opacity: 1; }
+
+          30%       { opacity: 0.55; }
+
+          60%       { opacity: 1; }
+
         }
+
         .animate-decor-float   { animation: decor-float   3s ease-in-out infinite; }
+
         .animate-decor-sway    { animation: decor-sway    4s ease-in-out infinite; }
+
         .animate-decor-twinkle { animation: decor-twinkle 2.5s ease-in-out infinite; }
+
       `}</style>
-    </>
+
+    </div>
+
   );
+
 }
+
+

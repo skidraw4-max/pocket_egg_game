@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "pocket-egg"
+  },
+  "targets": {
+    "pocket-egg": {
+      "hosting": {
+        "game": [
+          "pocket-egg"
+        ],
+        "admin": [
+          "pocket-egg-admin"
+        ]
+      }
+    }
   }
 }

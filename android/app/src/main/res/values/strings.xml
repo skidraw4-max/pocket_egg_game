@@ -4,4 +4,7 @@
     <string name="title_activity_main">포켓에그</string>
     <string name="package_name">com.pocketegg.game</string>
     <string name="custom_url_scheme">com.pocketegg.game</string>
+    <string name="developer_website">https://www.aisleshub.com</string>
+    <string name="privacy_policy_url">https://www.aisleshub.com/legal/privacy</string>
+    <string name="tnk_pub_id">5030a02060e1c9cffc9c1e040a000c08</string>
 </resources>

@@ -3,15 +3,18 @@
  * 상단 타이틀 + 중앙 기본몬 인사 애니메이션 + 하단 시작 버튼
  */
 import { useEffect, useState } from 'react';
+import { useCharacterImage } from '@/hooks/useCharacterSkin';
+import { DEVELOPER_NAME, DEVELOPER_WEBSITE_URL, PRIVACY_POLICY_URL } from '@/lib/siteConfig';
+import { publicAssetUrl } from '@/lib/publicAssets';
 
 interface TitleScreenProps {
   onStart: () => void;
 }
 
-const BASICMON_IMG = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/VMfNTgvHQyyUsWlF.png';
-const TITLE_BG = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074/YSlzPwLAfBZIZzDk.png';
+const TITLE_BG = publicAssetUrl('images/title-bg.webp');
 
 export default function TitleScreen({ onStart }: TitleScreenProps) {
+  const basicmonImg = useCharacterImage('기본몬', 'baby');
   const [visible, setVisible] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -30,7 +33,7 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
 
   return (
     <div
-      className="relative w-full h-full overflow-hidden flex flex-col items-center"
+      className="relative w-full h-full overflow-hidden flex flex-col items-center pt-app-safe pb-app-safe"
       style={{
         opacity: visible ? 1 : 0,
         transition: starting ? 'opacity 0.6s ease' : 'opacity 0.5s ease',
@@ -42,11 +45,11 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${TITLE_BG})` }}
       />
-      {/* 배경 오버레이 (가독성 향상) */}
-      <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-transparent to-purple-900/50" />
+      {/* 배경 오버레이 (텍스트·버튼 가독성) */}
+      <div className="absolute inset-0 bg-gradient-to-b from-indigo-950/35 via-transparent to-indigo-950/55" />
 
       {/* 상단 타이틀 영역 */}
-      <div className="relative z-10 flex flex-col items-center pt-16 px-6">
+      <div className="relative z-10 flex flex-col items-center pt-8 px-6">
         {/* 부제 */}
         <div
           className="text-white/80 text-sm font-medium tracking-widest mb-2 drop-shadow"
@@ -105,9 +108,9 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
           }}
         >
           <img
-            src={BASICMON_IMG}
+            src={basicmonImg}
             alt="포켓에그 기본몬"
-            className="w-44 h-44 object-contain"
+            className="w-56 h-56 object-contain"
           />
         </div>
 
@@ -141,7 +144,7 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
       </div>
 
       {/* 하단 버튼 영역 */}
-      <div className="relative z-10 w-full px-8 pb-16 flex flex-col items-center gap-3">
+      <div className="relative z-10 w-full px-8 pb-8 flex flex-col items-center gap-3">
         {/* 게임 시작 버튼 */}
         <button
           onClick={handleStart}
@@ -158,8 +161,24 @@ export default function TitleScreen({ onStart }: TitleScreenProps) {
           🎮 게임 시작하기
         </button>
 
-        {/* 버전 표시 */}
-        <div className="text-white/50 text-xs">v1.7.0</div>
+        {/* 버전 · 개발사 */}
+        <div className="text-white/50 text-xs">v1.11.18 · TNK</div>
+        <a
+          href={PRIVACY_POLICY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/40 text-[10px] hover:text-white/70 transition-colors underline-offset-2 hover:underline"
+        >
+          개인정보 처리방침
+        </a>
+        <a
+          href={DEVELOPER_WEBSITE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/40 text-[10px] hover:text-white/70 transition-colors underline-offset-2 hover:underline"
+        >
+          {DEVELOPER_NAME}
+        </a>
       </div>
 
       {/* 애니메이션 정의 */}

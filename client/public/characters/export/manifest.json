@@ -1,0 +1,248 @@
+{
+  "modern": [
+    {
+      "id": "basicmon",
+      "name": "기본몬",
+      "grade": "normal",
+      "file": "basicmon_기본몬.png",
+      "source": "characters/basicmon.png"
+    },
+    {
+      "id": "powermon",
+      "name": "파워몬",
+      "grade": "uncommon",
+      "file": "powermon_파워몬.png",
+      "source": "characters/powermon.png"
+    },
+    {
+      "id": "wizmon",
+      "name": "위즈몬",
+      "grade": "uncommon",
+      "file": "wizmon_위즈몬.png",
+      "source": "characters/wizmon.png"
+    },
+    {
+      "id": "lovelemon",
+      "name": "러블리몬",
+      "grade": "uncommon",
+      "file": "lovelemon_러블리몬.png",
+      "source": "characters/lovelemon.png"
+    },
+    {
+      "id": "greenmon",
+      "name": "그린몬",
+      "grade": "uncommon",
+      "file": "greenmon_그린몬.png",
+      "source": "characters/greenmon.png"
+    },
+    {
+      "id": "thundermon",
+      "name": "번개몬",
+      "grade": "uncommon",
+      "file": "thundermon_번개몬.png",
+      "source": "characters/thundermon.png"
+    },
+    {
+      "id": "dragonmon",
+      "name": "드래곤몬",
+      "grade": "rare",
+      "file": "dragonmon_드래곤몬.png",
+      "source": "characters/dragonmon.png"
+    },
+    {
+      "id": "magicmon",
+      "name": "매직몬",
+      "grade": "rare",
+      "file": "magicmon_매직몬.png",
+      "source": "characters/magicmon.png"
+    },
+    {
+      "id": "angelmon",
+      "name": "엔젤몬",
+      "grade": "rare",
+      "file": "angelmon_엔젤몬.png",
+      "source": "characters/angelmon.png"
+    },
+    {
+      "id": "forestmon",
+      "name": "포레스몬",
+      "grade": "rare",
+      "file": "forestmon_포레스몬.png",
+      "source": "characters/forestmon.png"
+    },
+    {
+      "id": "moonlightmon",
+      "name": "문라이트몬",
+      "grade": "rare",
+      "file": "moonlightmon_문라이트몬.png",
+      "source": "characters/moonlightmon.png"
+    },
+    {
+      "id": "crystalmon",
+      "name": "크리스탈몬",
+      "grade": "rare",
+      "file": "crystalmon_크리스탈몬.png",
+      "source": "characters/crystalmon.png"
+    },
+    {
+      "id": "legendmon",
+      "name": "레전드몬",
+      "grade": "epic",
+      "file": "legendmon_레전드몬.png",
+      "source": "characters/legendmon.png"
+    },
+    {
+      "id": "infernomon",
+      "name": "인페르노몬",
+      "grade": "legend",
+      "file": "infernomon_인페르노몬.png",
+      "source": "characters/infernomon.png"
+    },
+    {
+      "id": "oraclemon",
+      "name": "오라클몬",
+      "grade": "legend",
+      "file": "oraclemon_오라클몬.png",
+      "source": "characters/oraclemon.png"
+    },
+    {
+      "id": "seraphimon",
+      "name": "세라피몬",
+      "grade": "legend",
+      "file": "seraphimon_세라피몬.png",
+      "source": "characters/seraphimon.png"
+    },
+    {
+      "id": "gaiamon",
+      "name": "가이아몬",
+      "grade": "legend",
+      "file": "gaiamon_가이아몬.png",
+      "source": "characters/gaiamon.png"
+    }
+  ],
+  "classic": [
+    {
+      "id": "basicmon",
+      "name": "기본몬",
+      "grade": "normal",
+      "file": "basicmon_기본몬.png",
+      "source": "characters/classic/basicmon.png"
+    },
+    {
+      "id": "powermon",
+      "name": "파워몬",
+      "grade": "uncommon",
+      "file": "powermon_파워몬.png",
+      "source": "characters/classic/powermon.png"
+    },
+    {
+      "id": "wizmon",
+      "name": "위즈몬",
+      "grade": "uncommon",
+      "file": "wizmon_위즈몬.png",
+      "source": "characters/classic/wizmon.png"
+    },
+    {
+      "id": "lovelemon",
+      "name": "러블리몬",
+      "grade": "uncommon",
+      "file": "lovelemon_러블리몬.png",
+      "source": "characters/classic/lovelemon.png"
+    },
+    {
+      "id": "greenmon",
+      "name": "그린몬",
+      "grade": "uncommon",
+      "file": "greenmon_그린몬.png",
+      "source": "characters/classic/greenmon.png"
+    },
+    {
+      "id": "thundermon",
+      "name": "번개몬",
+      "grade": "uncommon",
+      "file": "thundermon_번개몬.png",
+      "source": "characters/classic/thundermon.png"
+    },
+    {
+      "id": "dragonmon",
+      "name": "드래곤몬",
+      "grade": "rare",
+      "file": "dragonmon_드래곤몬.png",
+      "source": "characters/classic/dragonmon.png"
+    },
+    {
+      "id": "magicmon",
+      "name": "매직몬",
+      "grade": "rare",
+      "file": "magicmon_매직몬.png",
+      "source": "characters/classic/magicmon.png"
+    },
+    {
+      "id": "angelmon",
+      "name": "엔젤몬",
+      "grade": "rare",
+      "file": "angelmon_엔젤몬.png",
+      "source": "characters/classic/angelmon.png"
+    },
+    {
+      "id": "forestmon",
+      "name": "포레스몬",
+      "grade": "rare",
+      "file": "forestmon_포레스몬.png",
+      "source": "characters/classic/forestmon.png"
+    },
+    {
+      "id": "moonlightmon",
+      "name": "문라이트몬",
+      "grade": "rare",
+      "file": "moonlightmon_문라이트몬.png",
+      "source": "characters/classic/moonlightmon.png"
+    },
+    {
+      "id": "crystalmon",
+      "name": "크리스탈몬",
+      "grade": "rare",
+      "file": "crystalmon_크리스탈몬.png",
+      "source": "characters/classic/crystalmon.png"
+    },
+    {
+      "id": "legendmon",
+      "name": "레전드몬",
+      "grade": "epic",
+      "file": "legendmon_레전드몬.png",
+      "source": "characters/classic/legendmon.png"
+    },
+    {
+      "id": "infernomon",
+      "name": "인페르노몬",
+      "grade": "legend",
+      "file": "infernomon_인페르노몬.png",
+      "source": "characters/classic/infernomon.png"
+    },
+    {
+      "id": "oraclemon",
+      "name": "오라클몬",
+      "grade": "legend",
+      "file": "oraclemon_오라클몬.png",
+      "source": "characters/classic/oraclemon.png"
+    },
+    {
+      "id": "seraphimon",
+      "name": "세라피몬",
+      "grade": "legend",
+      "file": "seraphimon_세라피몬.png",
+      "source": "characters/classic/seraphimon.png"
+    },
+    {
+      "id": "gaiamon",
+      "name": "가이아몬",
+      "grade": "legend",
+      "file": "gaiamon_가이아몬.png",
+      "source": "characters/classic/gaiamon.png"
+    }
+  ],
+  "egg": {
+    "modern": "egg_알.png",
+    "classic": "egg_알.png"
+  }
+}

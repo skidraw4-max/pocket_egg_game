@@ -212,6 +212,7 @@ const plugins = [
   vitePluginManusDebugCollector(),
   vitePluginStorageProxy(),
   VitePWA({
+    injectRegister: false,
     registerType: 'autoUpdate',
     includeAssets: ['icon-512.png', 'icon-192.png', 'apple-touch-icon.png', 'favicon-32.png', 'sounds/**/*'],
     manifest: {
@@ -320,9 +321,20 @@ const plugins = [
       ],
       // 앱 셸 중 오프라인 폴백 페이지
       navigateFallback: '/index.html',
-      navigateFallbackDenylist: [/^\/api\//],
+      navigateFallbackDenylist: [/^\/api\//, /^\/app-ads\.txt$/],
       // 빌드 시 사전 캐시될 파일 패턴
       globPatterns: ['**/*.{js,css,html,ico,png,jpg,webp,svg,woff2,wav,mp3}'],
+      globIgnores: [
+        '**/characters/status-illustrated/**',
+        '**/characters/export/**',
+        '**/characters/status-preview/**',
+        '**/characters/cards/**',
+        '**/legacy-cdn/**',
+        '**/characters/status/**/child/**',
+        '**/characters/status/**/teen/**',
+        '**/characters/status/**/adult/**',
+        '**/characters/status/**/mythic/**',
+      ],
     },
     devOptions: {
       enabled: false, // 개발 중에는 SW 비활성화 (HMR 충돌 방지)
@@ -331,6 +343,7 @@ const plugins = [
 ];
 
 export default defineConfig({
+  base: './',
   plugins,
   resolve: {
     alias: {

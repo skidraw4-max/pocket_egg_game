@@ -23,7 +23,9 @@ export type SoundKey =
   | 'dirty'
   | 'tired'
   | 'love'
-  | 'touch';
+  | 'touch'
+  | 'ribbonHit'
+  | 'ribbonPerfect';
 
 export type VoiceKey =
   | 'eating'
@@ -39,7 +41,29 @@ export type VoiceKey =
   | 'levelup'
   | 'evolution';
 
-export type BGMKey = 'main-room';
+export type BGMKey = 'main-room' | 'ribbon-1' | 'ribbon-2' | 'ribbon-3';
+
+export const RIBBON_BGM_KEYS: BGMKey[] = ['ribbon-1', 'ribbon-2', 'ribbon-3'];
+
+/** 리본 리듬 BGM 재생 중인지 (Home 클릭 핸들러 등에서 main-room 전환 방지) */
+export function isRibbonBGMActive(): boolean {
+  return _bgmKey !== null && RIBBON_BGM_KEYS.includes(_bgmKey);
+}
+
+/** 미니게임(리본 등) 진행 중 — main-room BGM 재생 억제 */
+let _minigameBgmLock = 0;
+
+export function setMinigameBgmLock(locked: boolean): void {
+  if (locked) {
+    _minigameBgmLock += 1;
+    return;
+  }
+  _minigameBgmLock = Math.max(0, _minigameBgmLock - 1);
+}
+
+export function isMinigameBgmActive(): boolean {
+  return _minigameBgmLock > 0 || isRibbonBGMActive();
+}
 
 /** 효과음 파일 경로 */
 const SOUND_URLS: Record<SoundKey, string> = {
@@ -53,6 +77,8 @@ const SOUND_URLS: Record<SoundKey, string> = {
   tired:    '/sounds/sfx-tired.wav',
   love:     '/sounds/sfx-love.wav',
   touch:    '/sounds/sfx-touch.wav',
+  ribbonHit:     '/sounds/sfx-ribbon-hit.wav',
+  ribbonPerfect: '/sounds/sfx-ribbon-perfect.wav',
 };
 
 /** 한국어 음성 파일 경로 (상황별 3가지, 랜덤 재생) */
@@ -74,15 +100,21 @@ const VOICE_URLS: Record<VoiceKey, string[]> = {
 /** BGM 파일 경로 */
 const BGM_URLS: Record<BGMKey, string> = {
   'main-room': '/sounds/bgm-main-room.wav',
+  'ribbon-1': '/sounds/bgm-ribbon-1.wav',
+  'ribbon-2': '/sounds/bgm-ribbon-2.wav',
+  'ribbon-3': '/sounds/bgm-ribbon-3.wav',
 };
 
 // ─── 전역 싱글턴 상태 ───────────────────────────────────────────────────────
 let _audioCtx: AudioContext | null = null;
 let _bgmSource: AudioBufferSourceNode | null = null;
 let _bgmGain: GainNode | null = null;
-let _bgmBuffer: AudioBuffer | null = null;
+const _bgmBufferCache: Map<BGMKey, AudioBuffer> = new Map();
 let _bgmKey: BGMKey | null = null;
 let _bgmPlaying = false; // 실제 재생 중 여부 (source.onended 로 관리)
+let _bgmRequestId = 0; // 비동기 로드 중 최신 요청 추적
+/** AudioContext.currentTime 기준 BGM source.start() 시각 (리듬 게임 동기화) */
+let _bgmStartTime: number | null = null;
 const _bufferCache: Partial<Record<SoundKey, AudioBuffer>> = {};
 const _loading: Partial<Record<SoundKey, boolean>> = {};
 
@@ -223,26 +255,77 @@ async function loadVoiceBuffer(url: string): Promise<AudioBuffer | null> {
 }
 
 async function loadBGMBuffer(key: BGMKey): Promise<AudioBuffer | null> {
-  if (_bgmBuffer) return _bgmBuffer;
+  if (_bgmBufferCache.has(key)) return _bgmBufferCache.get(key)!;
   try {
     const ctx = getAudioCtx();
     const resp = await fetch(BGM_URLS[key]);
     if (!resp.ok) throw new Error(`Failed to fetch BGM: ${key}`);
     const ab = await resp.arrayBuffer();
-    _bgmBuffer = await ctx.decodeAudioData(ab);
-    return _bgmBuffer;
+    const buf = await ctx.decodeAudioData(ab);
+    _bgmBufferCache.set(key, buf);
+    return buf;
   } catch (err) {
     console.warn(`[useSound] Failed to load BGM: ${key}`, err);
     return null;
   }
 }
 
+/** BGM 재생 경과 ms (리듬 게임 동기화). 미재생 시 0 */
+export function getBGMSongTimeMs(): number {
+  if (!_audioCtx || _bgmStartTime === null || !_bgmPlaying) return 0;
+  return Math.max(0, (_audioCtx.currentTime - _bgmStartTime) * 1000);
+}
+
+function _stopBGMSource() {
+  if (_bgmSource) {
+    try { _bgmSource.stop(); } catch {}
+    _bgmSource = null;
+  }
+  _bgmPlaying = false;
+  _bgmStartTime = null;
+}
+
+function _startBGMSource(ctx: AudioContext, buf: AudioBuffer, key: BGMKey): void {
+  // 비동기 로드 경쟁 시 이전 source가 남지 않도록 항상 정지
+  _stopBGMSource();
+
+  if (!_bgmGain) {
+    _bgmGain = ctx.createGain();
+    _bgmGain.connect(ctx.destination);
+  }
+  _applyVolumeToBGM();
+
+  const source = ctx.createBufferSource();
+  source.buffer = buf;
+  source.loop = true;
+  source.connect(_bgmGain);
+  const startAt = ctx.currentTime + 0.05;
+  source.start(startAt);
+  source.onended = () => {
+    if (_bgmSource === source) {
+      _bgmSource = null;
+      _bgmPlaying = false;
+      _bgmStartTime = null;
+    }
+  };
+  _bgmSource = source;
+  _bgmKey = key;
+  _bgmPlaying = true;
+  _bgmStartTime = startAt;
+}
+
 // ─── React Hook ─────────────────────────────────────────────────────────────
 interface UseSoundReturn {
   play: (key: SoundKey) => void;
+  preloadSound: (key: SoundKey) => void;
   playVoice: (key: VoiceKey) => void;
   playBGM: (key: BGMKey) => void;
+  /** BGM을 처음부터 재생 (리듬 게임 — 항상 restart, songTime 0부터) */
+  playBGMFromStart: (key: BGMKey) => Promise<boolean>;
+  playRandomRibbonBGM: () => BGMKey;
   stopBGM: () => void;
+  /** AudioContext resume만 (BGM 트랙 변경 없음) */
+  resumeAudio: () => void;
   isMuted: boolean;
   toggleMute: () => void;
   volume: number;
@@ -282,6 +365,10 @@ export function useSound(): UseSoundReturn {
         console.warn(`[useSound] play error: ${key}`, err);
       }
     })();
+  }, []);
+
+  const preloadSound = useCallback((key: SoundKey) => {
+    loadBuffer(key).catch(() => {});
   }, []);
 
   // 한국어 음성 재생 (상황별 랜덤 1개 선택, SFX 효과음 직후 약간 딜레이)
@@ -383,6 +470,8 @@ export function useSound(): UseSoundReturn {
 
   // BGM 재생 (루프) — 이미 같은 BGM이 재생 중이면 중복 시작 방지
   const playBGM = useCallback((key: BGMKey) => {
+    if (key === 'main-room' && isMinigameBgmActive()) return;
+
     (async () => {
       try {
         // 이미 같은 BGM이 재생 중이면 볼륨만 갱신하고 종료
@@ -391,57 +480,67 @@ export function useSound(): UseSoundReturn {
           return;
         }
 
+        const requestId = ++_bgmRequestId;
+
         // 기존 BGM 정지
-        if (_bgmSource) {
-          try { _bgmSource.stop(); } catch {}
-          _bgmSource = null;
-        }
-        _bgmPlaying = false;
+        _stopBGMSource();
 
         const ctx = getAudioCtx();
         const buf = await loadBGMBuffer(key);
         if (!buf) return;
 
-        // 비동기 로드 중 다른 BGM이 시작됐으면 중단
-        if (_bgmPlaying && _bgmKey === key) return;
+        // 비동기 로드 중 더 최신 BGM 요청이 들어왔으면 중단
+        if (requestId !== _bgmRequestId) return;
 
-        // GainNode 생성 (없으면)
-        if (!_bgmGain) {
-          _bgmGain = ctx.createGain();
-          _bgmGain.connect(ctx.destination);
-        }
-        _applyVolumeToBGM();
-
-        const source = ctx.createBufferSource();
-        source.buffer = buf;
-        source.loop = true;
-        source.connect(_bgmGain);
-        source.start(0);
-        source.onended = () => {
-          // loop=true 이므로 정상 상황에서는 호출되지 않음
-          // stop() 호출 시에만 발생 → 상태 초기화
-          if (_bgmSource === source) {
-            _bgmSource = null;
-            _bgmPlaying = false;
-          }
-        };
-        _bgmSource = source;
-        _bgmKey = key;
-        _bgmPlaying = true;
+        _startBGMSource(ctx, buf, key);
       } catch (err) {
         console.warn(`[useSound] playBGM error: ${key}`, err);
       }
     })();
   }, []);
 
+  const playBGMFromStart = useCallback((key: BGMKey): Promise<boolean> => {
+    return new Promise(resolve => {
+      (async () => {
+        try {
+          const requestId = ++_bgmRequestId;
+          _stopBGMSource();
+          _bgmKey = key;
+
+          const ctx = getAudioCtx();
+          await ctx.resume();
+          const buf = await loadBGMBuffer(key);
+          if (!buf || requestId !== _bgmRequestId) {
+            if (_bgmKey === key) _bgmKey = null;
+            resolve(false);
+            return;
+          }
+
+          _startBGMSource(ctx, buf, key);
+          resolve(true);
+        } catch (err) {
+          if (_bgmKey === key) _bgmKey = null;
+          console.warn(`[useSound] playBGMFromStart error: ${key}`, err);
+          resolve(false);
+        }
+      })();
+    });
+  }, []);
+
+  const playRandomRibbonBGM = useCallback((): BGMKey => {
+    const key = RIBBON_BGM_KEYS[Math.floor(Math.random() * RIBBON_BGM_KEYS.length)];
+    playBGM(key);
+    return key;
+  }, [playBGM]);
+
   // BGM 정지
   const stopBGM = useCallback(() => {
-    if (_bgmSource) {
-      try { _bgmSource.stop(); } catch {}
-      _bgmSource = null;
-      _bgmKey = null;
-      _bgmPlaying = false;
-    }
+    _stopBGMSource();
+    _bgmKey = null;
+  }, []);
+
+  const resumeAudio = useCallback(() => {
+    getAudioCtx();
   }, []);
 
   // 음소거 토글
@@ -467,9 +566,13 @@ export function useSound(): UseSoundReturn {
 
   return {
     play,
+    preloadSound,
     playVoice,
     playBGM,
+    playBGMFromStart,
+    playRandomRibbonBGM,
     stopBGM,
+    resumeAudio,
     isMuted: _isMuted,
     toggleMute,
     volume: _volume,

@@ -3,15 +3,16 @@
  * Cozy Nursery: 화려한 파티클, 축하 분위
  */
 import { useGame } from '@/contexts/GameContext';
-import { getCharacterImage } from '@/lib/gameState';
+import { useCharacterImage } from '@/hooks/useCharacterSkin';
 
 export default function EvolutionScreen() {
   const { pendingEvolution, confirmEvolution, state } = useGame();
+  const newPetImageUrl = useCharacterImage(
+    pendingEvolution?.newSpecies ?? '기본몬',
+    pendingEvolution?.newStage ?? 'baby',
+  );
 
   if (!pendingEvolution) return null;
-
-  // 진화 후 새 종족 이미지
-  const newPetImageUrl = getCharacterImage(pendingEvolution.newSpecies, pendingEvolution.newStage);
 
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">

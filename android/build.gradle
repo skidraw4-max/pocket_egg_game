@@ -21,6 +21,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://repository.tnkad.net:8443/repository/public/' }
     }
 }
 

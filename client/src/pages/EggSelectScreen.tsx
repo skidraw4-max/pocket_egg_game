@@ -4,6 +4,9 @@
  */
 import { useState, useEffect, useRef } from 'react';
 import { SELECT_EGGS, type EggColorId, type SelectEggDef } from '@/lib/eggTypes';
+import { publicAssetUrl } from '@/lib/publicAssets';
+
+const EGG_SELECT_BG = publicAssetUrl('images/egg-select-bg.webp');
 
 interface EggSelectScreenProps {
   onSelect: (eggColor: EggColorId) => void;
@@ -90,13 +93,23 @@ export default function EggSelectScreen({ onSelect }: EggSelectScreenProps) {
     setTimeout(() => onSelect(result.id), 700);
   };
 
-  const currentEgg = phase === 'spin' ? SELECT_EGGS[spinIndex] : result ?? SELECT_EGGS[spinIndex];
+  const currentEgg = (phase === 'spin' ? SELECT_EGGS[spinIndex] : result ?? SELECT_EGGS[spinIndex]) ?? SELECT_EGGS[0];
+
+  if (SELECT_EGGS.length === 0) {
+    return (
+      <div className="absolute inset-0 z-[300] flex items-center justify-center bg-indigo-950 text-white p-6 text-center">
+        <p>알 데이터를 불러오지 못했어요. 앱을 다시 시작해 주세요.</p>
+      </div>
+    );
+  }
 
   return (
     <div
-      className="absolute inset-0 z-[300] flex flex-col overflow-hidden"
+      className="absolute inset-0 z-[300] flex flex-col overflow-hidden pt-app-safe pb-app-safe"
       style={{
-        background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 50%, #1e1b4b 100%)',
+        backgroundImage: `url(${EGG_SELECT_BG})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
         opacity: confirming ? 0 : 1,
         transition: 'opacity 0.7s ease',
       }}
@@ -117,7 +130,7 @@ export default function EggSelectScreen({ onSelect }: EggSelectScreenProps) {
       </div>
 
       {/* 헤더 */}
-      <div className="relative z-10 flex flex-col items-center pt-10 pb-4 px-6">
+      <div className="relative z-10 flex flex-col items-center pt-2 pb-4 px-6">
         <h1 className="text-2xl font-black text-white mb-1" style={{ fontFamily: 'Nunito, sans-serif' }}>
           {phase === 'spin' ? '알을 뽑는 중...' : phase === 'reveal' ? '알이 결정됐어요!' : '당신의 알이에요!'}
         </h1>

@@ -7,29 +7,42 @@ import { useGame } from '@/contexts/GameContext';
 import { useState } from 'react';
 import PuzzleGame from '@/components/game/PuzzleGame';
 import BallGame from '@/components/game/BallGame';
+import RibbonGame from '@/components/game/RibbonGame';
+import LeafFlipGame from '@/components/game/LeafFlipGame';
 import GameTutorialCard from '@/components/game/GameTutorialCard';
 import { TUTORIALS } from '@/lib/tutorialData';
+import { PLAY_TOY_IDS, getInventoryCatalogItem } from '@/lib/cloudState';
 
 interface PlayMenuProps {
   onClose: () => void;
 }
 
+function getObjectParticle(name: string): '을' | '를' {
+  const code = name.charCodeAt(name.length - 1);
+  if (code < 0xac00 || code > 0xd7a3) return '을';
+  return (code - 0xac00) % 28 === 0 ? '를' : '을';
+}
+
 export default function PlayMenu({ onClose }: PlayMenuProps) {
   const { state, play, setTutorialSeen } = useGame();
-  const toyItems = state.inventory.filter(i => i.type === 'toy');
+  const ownedToyIds = new Set(
+    state.inventory.filter(i => i.type === 'toy' && i.quantity > 0).map(i => i.id),
+  );
   const [showPuzzle, setShowPuzzle] = useState(false);
   const [showBallGame, setShowBallGame] = useState(false);
+  const [showRibbonGame, setShowRibbonGame] = useState(false);
+  const [showLeafFlipGame, setShowLeafFlipGame] = useState(false);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
 
   /** 장난감 클릭 핸들러 — tutorialSeen 여부에 따라 분기 */
   const handlePlay = (itemId: string) => {
+    if (!ownedToyIds.has(itemId)) return;
+
     const seen = state.tutorialSeen?.[itemId] ?? false;
     if (!seen && TUTORIALS[itemId]) {
-      // 튜토리얼 미확인 → 카드 표시
       setPendingItemId(itemId);
       return;
     }
-    // 튜토리얼 확인됨 → 바로 시작
     startGame(itemId);
   };
 
@@ -39,6 +52,10 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
       setShowPuzzle(true);
     } else if (itemId === 'toy_ball') {
       setShowBallGame(true);
+    } else if (itemId === 'toy_ribbon') {
+      setShowRibbonGame(true);
+    } else if (itemId === 'toy_leaf') {
+      setShowLeafFlipGame(true);
     } else {
       play(itemId);
       onClose();
@@ -71,11 +88,20 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
     return <BallGame onClose={onClose} />;
   }
 
+  // 리본 리듬 게임 화면
+  if (showRibbonGame) {
+    return <RibbonGame onClose={onClose} />;
+  }
+
+  // 잎사귀 뒤집기 게임 화면
+  if (showLeafFlipGame) {
+    return <LeafFlipGame onClose={onClose} />;
+  }
+
   // 튜토리얼 카드 오버레이 (장난감 목록 위에 표시)
   if (pendingItemId && TUTORIALS[pendingItemId]) {
     return (
       <div className="absolute inset-0 z-50">
-        {/* 배경 — 반투명 */}
         <div className="absolute inset-0 bg-black/30" onClick={handleTutorialClose} />
         <GameTutorialCard
           tutorial={TUTORIALS[pendingItemId]}
@@ -89,10 +115,9 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
   return (
     <div className="absolute inset-0 z-50 flex items-end" onClick={onClose}>
       <div
-        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl p-5 shadow-2xl animate-slide-up"
+        className="w-full bg-white/95 backdrop-blur-lg rounded-t-3xl pt-5 px-5 pb-app-safe shadow-2xl animate-slide-up max-h-[min(70dvh,100%)] flex flex-col min-h-0"
         onClick={e => e.stopPropagation()}
       >
-        {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-warm-brown flex items-center gap-2">
             <span>🎾</span> 놀아주기
@@ -107,35 +132,44 @@ export default function PlayMenu({ onClose }: PlayMenuProps) {
 
         <p className="text-sm text-sub-brown mb-3">장난감을 골라주세요!</p>
 
-        {/* 장난감 목록 */}
         <div className="grid grid-cols-2 gap-3">
-          {toyItems.map(item => {
-            const seen = state.tutorialSeen?.[item.id] ?? false;
+          {PLAY_TOY_IDS.map(toyId => {
+            const meta = getInventoryCatalogItem(toyId);
+            if (!meta) return null;
+
+            const owned = ownedToyIds.has(toyId);
+            const seen = state.tutorialSeen?.[toyId] ?? false;
+            const particle = getObjectParticle(meta.name);
+
             return (
               <button
-                key={item.id}
-                onClick={() => handlePlay(item.id)}
-                className="relative flex flex-col items-center gap-2 p-4 bg-cream rounded-2xl cushion-btn border border-border"
+                key={toyId}
+                type="button"
+                disabled={!owned}
+                onClick={() => handlePlay(toyId)}
+                className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border border-border ${
+                  owned
+                    ? 'bg-cream cushion-btn'
+                    : 'bg-muted/60 opacity-60 grayscale cursor-not-allowed'
+                }`}
               >
-                {/* 튜토리얼 미확인 배지 */}
-                {!seen && TUTORIALS[item.id] && (
+                {!seen && owned && TUTORIALS[toyId] && (
                   <span className="absolute top-2 right-2 w-5 h-5 bg-red-400 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     !
                   </span>
                 )}
-                <span className="text-4xl">{item.icon}</span>
-                <span className="text-sm font-semibold text-warm-brown">{item.name}</span>
-                <span className="text-[10px] text-sub-brown">{item.description}</span>
+
+                <span className="text-4xl">{meta.icon}</span>
+                <span className="text-sm font-semibold text-warm-brown">{meta.name}</span>
+                <span className="text-[10px] text-sub-brown text-center leading-snug">
+                  {owned
+                    ? meta.description
+                    : `상점에서 ${meta.name}${particle} 구입하면 놀 수 있어요!`}
+                </span>
               </button>
             );
           })}
         </div>
-
-        {toyItems.length === 0 && (
-          <div className="text-center py-8 text-sub-brown text-sm">
-            장난감이 없어요... 상점에서 구매해 주세요!
-          </div>
-        )}
 
         <style>{`
           @keyframes slide-up {

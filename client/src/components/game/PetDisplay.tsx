@@ -11,19 +11,39 @@
  * 6. idle: 기본 상태
  */
 import { useGame, PetAction } from '@/contexts/GameContext';
-import { PetProfile, PetStatus, getCharacterImage } from '@/lib/gameState';
+import { PetProfile, PetStatus, getActiveSpecialActionId, UNLOCKED_EMOTION_PHRASES } from '@/lib/gameState';
+import { useCharacterImage, useCharacterSkin } from '@/hooks/useCharacterSkin';
+import { getCharacterImage } from '@/lib/speciesRegistry';
+import {
+  getStatusExpressionImageCandidates,
+  getStatusExpressionImageUrl,
+  resolveActiveStatusExpression,
+  statusStatToEmotion,
+} from '@/lib/statusExpressions';
 import { useSound } from '@/hooks/useSound';
 import { useMemo, useState, useEffect, useRef } from 'react';
-import ChatBubble from './ChatBubble';
+import ChatBubble, { type ChatLinkAction } from './ChatBubble';
+import { getSpecialActionDef, formatCooldownRemaining } from '@/lib/specialActions';
+import { getAggregatedRoomPerks } from '@/lib/decorPerks';
+import {
+  type TouchEmotion,
+  type TouchMotion,
+  TOUCH_MOTION_ANIMATION,
+  pickTouchBubbleWithGreeting,
+  pickTouchMotion,
+  pickTouchParticles,
+  consumeFirstTouchGreetingToday,
+} from '@/lib/touchReactions';
 
 interface PetDisplayProps {
   pet: PetProfile;
   isSleeping: boolean;
   onLongPress?: () => void;
+  onChatAction?: (action: ChatLinkAction) => void;
 }
 
 /** 감정 타입 */
-type Emotion = 'idle' | 'happy' | 'hungry' | 'dirty' | 'tired' | 'love';
+type Emotion = 'idle' | 'happy' | 'hungry' | 'dirty' | 'tired' | 'bored' | 'love';
 
 /** 감정별 오버레이 이모지 (종족 이미지 위에 표시) */
 const EMOTION_OVERLAY: Record<Emotion, string | null> = {
@@ -32,6 +52,7 @@ const EMOTION_OVERLAY: Record<Emotion, string | null> = {
   hungry: '😢',
   dirty: '🤢',
   tired: '😴',
+  bored: '😑',
   love: '😍',
 };
 
@@ -42,6 +63,7 @@ const EMOTION_ANIMATION: Record<Emotion, string> = {
   hungry: 'sad-shake 2s ease-in-out infinite',
   dirty: 'dirty-tremble 0.8s ease-in-out infinite',
   tired: 'tired-sway 3s ease-in-out infinite',
+  bored: 'bored-sway 2.5s ease-in-out infinite',
   love: 'love-pulse 1.5s ease-in-out infinite',
 };
 
@@ -52,6 +74,7 @@ const EMOTION_BUBBLE: Record<Emotion, string | null> = {
   hungry: '배고파...',
   dirty: '씻고 싶어...',
   tired: '졸려...',
+  bored: '심심해...',
   love: '사랑해!',
 };
 
@@ -62,6 +85,7 @@ const ACTION_ANIMATION: Record<PetAction, string> = {
   playing: 'bounce-play 0.5s ease-in-out 5',
   cleaning: 'wiggle-clean 0.6s ease-in-out 3',
   sleeping: 'none',
+  special: 'special-sparkle 0.6s ease-in-out 4',
 };
 
 /** 액션별 이펙트 이모지 */
@@ -71,26 +95,25 @@ const ACTION_EFFECT: Record<PetAction, string | null> = {
   playing: '⭐',
   cleaning: '🫧',
   sleeping: '💤',
+  special: null, // 특수 액션은 def.effectEmoji 사용
 };
 
-/** 상태 수치로 감정 판단 */
+/** 상태 수치로 감정 판단 (표정 우선순위: 청결 > 졸림 > 배고픔 > 심심함) */
 function determineEmotion(status: PetStatus, intimacy: number): Emotion {
-  // 최우선: 사랑 (친밀도 높고 모든 상태 양호)
   if (intimacy >= 80 && status.hunger >= 70 && status.mood >= 70 && status.clean >= 70 && status.fatigue <= 30) {
     return 'love';
   }
-  // 위기 상태 (수치가 매우 낮을 때)
-  if (status.hunger < 30) return 'hungry';
-  if (status.clean < 30) return 'dirty';
-  if (status.fatigue > 70) return 'tired';
-  // 행복 (기분 좋을 때)
+  const activeExpression = resolveActiveStatusExpression(status);
+  if (activeExpression) {
+    return statusStatToEmotion(activeExpression.stat);
+  }
   if (status.mood > 70) return 'happy';
-  // 기본
   return 'idle';
 }
 
-export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayProps) {
-  const { touch, currentAction: gameCurrentAction, state } = useGame();
+export default function PetDisplay({ pet, isSleeping, onLongPress, onChatAction }: PetDisplayProps) {
+  const { touch, currentAction: gameCurrentAction, state, expBoostRemainingMs, applyChatDialogue } = useGame();
+  const roomPerks = useMemo(() => getAggregatedRoomPerks(state), [state]);
   // 게임 액션 상태 동기화
   useEffect(() => {
     setCurrentActionLocal(gameCurrentAction);
@@ -98,6 +121,14 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
   const { play: playSound, playVoice } = useSound();
   const [isTouched, setIsTouched] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
+  const [touchFlashText, setTouchFlashText] = useState<string | null>(null);
+  const [touchMotion, setTouchMotion] = useState<TouchMotion | null>(null);
+  const [touchParticles, setTouchParticles] = useState<{ id: number; emoji: string; left: string; top: string }[]>([]);
+  const comboRef = useRef({ count: 0, lastAt: 0 });
+  const touchFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchMotionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchParticleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const particleIdRef = useRef(0);
   const prevEmotionRef = useRef<Emotion>('idle');
   const [_currentActionLocal, setCurrentActionLocal] = useState<PetAction>('idle');
 
@@ -122,54 +153,196 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
     else if (emotion === 'hungry') { playSound('hungry'); playVoice('hungry'); }
     else if (emotion === 'dirty') { playSound('dirty'); playVoice('dirty'); }
     else if (emotion === 'tired') { playSound('tired'); playVoice('tired'); }
+    else if (emotion === 'bored') { playSound('happy'); playVoice('happy'); }
 
     prevEmotionRef.current = emotion;
   }, [emotion, gameCurrentAction, isSleeping, playSound, playVoice]);
 
+  useEffect(() => {
+    return () => {
+      if (touchFlashTimerRef.current) clearTimeout(touchFlashTimerRef.current);
+      if (touchMotionTimerRef.current) clearTimeout(touchMotionTimerRef.current);
+      if (touchParticleTimerRef.current) clearTimeout(touchParticleTimerRef.current);
+    };
+  }, []);
+
   const handleTouch = () => {
     if (isSleeping || gameCurrentAction !== 'idle') return;
+
+    const now = Date.now();
+    if (now - comboRef.current.lastAt < 1500) {
+      comboRef.current.count += 1;
+    } else {
+      comboRef.current.count = 1;
+    }
+    comboRef.current.lastAt = now;
+
+    const isFirstToday = comboRef.current.count === 1 && consumeFirstTouchGreetingToday();
+    const reactionInput = {
+      emotion: emotion as TouchEmotion,
+      stage: pet.stage,
+      intimacy: pet.intimacy,
+      unlockedEmotions: state.unlockedEmotions ?? [],
+      comboCount: comboRef.current.count,
+      hasExpBoost: expBoostRemainingMs > 0,
+      hasTouchExpPerk: roomPerks.touchExpBonusPct > 0,
+    };
+
     touch();
+    setTouchFlashText(pickTouchBubbleWithGreeting(reactionInput, isFirstToday));
+    if (touchFlashTimerRef.current) clearTimeout(touchFlashTimerRef.current);
+    touchFlashTimerRef.current = setTimeout(() => setTouchFlashText(null), 2500);
+
+    const motion = pickTouchMotion(pet.stage, emotion as TouchEmotion);
+    setTouchMotion(motion);
+    if (touchMotionTimerRef.current) clearTimeout(touchMotionTimerRef.current);
+    touchMotionTimerRef.current = setTimeout(() => setTouchMotion(null), 500);
+
+    const emojis = pickTouchParticles(reactionInput);
+    setTouchParticles(
+      emojis.map((emoji, i) => ({
+        id: ++particleIdRef.current,
+        emoji,
+        left: `${20 + Math.random() * 50 + i * 10}%`,
+        top: `${5 + Math.random() * 25}%`,
+      })),
+    );
+    if (touchParticleTimerRef.current) clearTimeout(touchParticleTimerRef.current);
+    touchParticleTimerRef.current = setTimeout(() => setTouchParticles([]), 1100);
+
     setIsTouched(true);
     setShowHeart(true);
     setTimeout(() => setIsTouched(false), 300);
     setTimeout(() => setShowHeart(false), 1000);
-    // 터치 효과음은 GameContext에서 이미 재생됨
   };
 
   // 알 단계 여부
   const isEgg = pet.stage === 'egg';
 
   // 이미지 결정: 항상 현재 종족+단계 이미지 사용 (감정은 오버레이 이모지로 표현)
-  const petImage = (() => {
-    if (isEgg) return getCharacterImage(pet.species, 'egg');
-    // 진화한 종족 이미지를 항상 기준으로 사용
-    return getCharacterImage(pet.species, pet.stage);
-  })();
+  const { skin } = useCharacterSkin();
+  const eggImage = useCharacterImage(pet.species, 'egg');
+  const stageImage = useCharacterImage(pet.species, pet.stage);
+  const petImage = isEgg ? eggImage : stageImage;
+
+  const activeExpression = useMemo(
+    () => (isEgg ? null : resolveActiveStatusExpression(state.status)),
+    [state.status, isEgg],
+  );
+
+  const expressionCandidates = useMemo(() => {
+    if (!activeExpression || isEgg) return [];
+    return getStatusExpressionImageCandidates(
+      pet.species,
+      activeExpression.stat,
+      activeExpression.tier,
+      pet.stage,
+      skin,
+    );
+  }, [activeExpression, isEgg, pet.species, pet.stage, skin]);
+
+  const expressionImage = expressionCandidates[0] ?? null;
+
+  const isStatusSprite = Boolean(
+    activeExpression &&
+    expressionImage &&
+    gameCurrentAction === 'idle' &&
+    !isSleeping,
+  );
+
+  const baseDisplayImage = useMemo(() => {
+    if (isStatusSprite && expressionImage) {
+      return expressionImage;
+    }
+    return petImage;
+  }, [isStatusSprite, expressionImage, petImage]);
+
+  const [imageSrc, setImageSrc] = useState(baseDisplayImage);
+  const [expressionCandidateIndex, setExpressionCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setImageSrc(baseDisplayImage);
+    setExpressionCandidateIndex(0);
+  }, [baseDisplayImage]);
 
   // 감정 오버레이 이모지 (수면/액션 중에는 숨김)
-  const emotionOverlayEmoji = (!isSleeping && gameCurrentAction === 'idle')
+  const emotionOverlayEmoji = (
+    !isSleeping &&
+    gameCurrentAction === 'idle' &&
+    !activeExpression
+  )
     ? EMOTION_OVERLAY[emotion]
     : null;
 
-  // 애니메이션 결정
+  // 애니메이션 결정 — 상태 스프라이트는 subtle breathe만
   const petAnimation = (() => {
     if (isEgg) return 'egg-wobble 2s ease-in-out infinite';
     if (isSleeping) return 'none';
     if (gameCurrentAction !== 'idle') return ACTION_ANIMATION[gameCurrentAction];
+    if (isStatusSprite) return 'none';
     return EMOTION_ANIMATION[emotion];
   })();
 
-  const effectEmoji = gameCurrentAction !== 'idle' ? ACTION_EFFECT[gameCurrentAction] : null;
-  const emotionBubble = gameCurrentAction === 'idle' ? EMOTION_BUBBLE[emotion] : null;
+  const specialDef = useMemo(
+    () => getSpecialActionDef(getActiveSpecialActionId(state)),
+    [state.gachaEgg],
+  );
+
+  const effectEmoji = (() => {
+    if (gameCurrentAction === 'special') return specialDef?.effectEmoji ?? '✨';
+    return gameCurrentAction !== 'idle' ? ACTION_EFFECT[gameCurrentAction] : null;
+  })();
+
+  const bubbleText = (() => {
+    if (gameCurrentAction === 'special') return specialDef?.feedbackMessage ?? '특별한 힘이 느껴져요! ✨';
+    if (gameCurrentAction === 'idle') {
+      if (isStatusSprite) return null;
+      const unlocked = state.unlockedEmotions ?? [];
+      if (emotion === 'love' && unlocked.includes('milestone_soulmate')) {
+        return UNLOCKED_EMOTION_PHRASES.milestone_soulmate;
+      }
+      if (pet.intimacy >= 90 && unlocked.includes('milestone_doki')) {
+        return UNLOCKED_EMOTION_PHRASES.milestone_doki;
+      }
+      return EMOTION_BUBBLE[emotion];
+    }
+    return null;
+  })();
+
+  const chatContext = useMemo(
+    () => ({
+      pet,
+      status: state.status,
+      emotion: emotion as TouchEmotion,
+      intimacy: pet.intimacy,
+      unlockedEmotions: state.unlockedEmotions ?? [],
+    }),
+    [pet, state.status, emotion, state.unlockedEmotions],
+  );
 
   return (
     <div className="relative flex flex-col items-center">
+      {/* EXP 2배 버프 배지 */}
+      {expBoostRemainingMs > 0 && (
+        <div className="mb-2 z-20 flex items-center gap-1.5 bg-gradient-to-r from-peach/90 to-lavender/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md border border-white/50">
+          <span className="text-xs font-bold text-white">🌟 EXP×2</span>
+          <span className="text-[10px] font-semibold text-white/90">
+            {formatCooldownRemaining(expBoostRemainingMs)} 남음
+          </span>
+        </div>
+      )}
+
       {/* 말풍선 — 캐릭터 위에 중앙 배치 */}
-      {gameCurrentAction === 'idle' && !isSleeping && (
+      {!isSleeping && (gameCurrentAction === 'idle' || gameCurrentAction === 'special') && (
         <div className="mb-2 z-20" style={{ whiteSpace: 'nowrap' }}>
           <ChatBubble
             petName={pet.name}
-            defaultText={emotionBubble || '말 걸어줘요! 💬'}
+            defaultText={bubbleText || '말 걸어줘요! 💬'}
+            flashText={touchFlashText}
+            gameState={state}
+            chatContext={chatContext}
+            onApplyDialogue={applyChatDialogue}
+            onChatAction={onChatAction}
           />
         </div>
       )}
@@ -179,16 +352,38 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
         className="relative cursor-pointer"
         onClick={handleTouch}
         style={{
-          transform: isTouched ? 'scale(1.08)' : 'scale(1)',
-          transition: 'transform 300ms cubic-bezier(0.23, 1, 0.32, 1)',
+          transform: touchMotion ? undefined : isTouched ? 'scale(1.08)' : 'scale(1)',
+          transition: touchMotion ? 'none' : 'transform 300ms cubic-bezier(0.23, 1, 0.32, 1)',
+          animation: touchMotion ? TOUCH_MOTION_ANIMATION[touchMotion] : undefined,
         }}
       >
         <img
-          src={petImage}
+          src={imageSrc}
           alt={pet.name}
-          className="w-56 h-56 object-contain drop-shadow-2xl"
-          style={{ animation: petAnimation }}
-          key={`${pet.species}-${pet.stage}-${gameCurrentAction}-${emotion}`}
+          className="w-56 h-56 object-contain"
+          style={{
+            animation: petAnimation,
+            background: 'transparent',
+            filter: isStatusSprite ? 'none' : 'drop-shadow(0 8px 16px rgba(107, 33, 168, 0.25))',
+            imageRendering: 'auto',
+            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: 'hidden',
+          }}
+          key={`${pet.species}-${pet.stage}-${activeExpression?.stat ?? 'ok'}-${activeExpression?.tier ?? ''}-${gameCurrentAction}`}
+          onError={() => {
+            if (isStatusSprite && expressionCandidateIndex + 1 < expressionCandidates.length) {
+              const next = expressionCandidateIndex + 1;
+              setExpressionCandidateIndex(next);
+              setImageSrc(expressionCandidates[next]);
+              return;
+            }
+            const fallback = getCharacterImage('기본몬', isEgg ? 'egg' : 'baby', skin);
+            if (imageSrc !== fallback && imageSrc !== petImage) {
+              setImageSrc(petImage);
+              return;
+            }
+            if (imageSrc !== fallback) setImageSrc(fallback);
+          }}
         />
 
         {/* 감정 오버레이 이모지 — 종족 이미지 위에 표시 */}
@@ -210,6 +405,17 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
             <span className="absolute top-2 right-6 text-sm animate-particle-4">{effectEmoji}</span>
           </div>
         )}
+
+        {/* 터치 파티클 */}
+        {touchParticles.map(p => (
+          <div
+            key={p.id}
+            className="absolute pointer-events-none select-none animate-touch-particle"
+            style={{ left: p.left, top: p.top }}
+          >
+            <span className="text-xl">{p.emoji}</span>
+          </div>
+        ))}
 
         {/* 하트 이펙트 (터치) */}
         {showHeart && (
@@ -288,6 +494,10 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
           50% { transform: translateY(4px) rotate(0deg); }
           75% { transform: translateY(2px) rotate(2deg); }
         }
+        @keyframes bored-sway {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(1px) rotate(-1deg); }
+        }
         @keyframes love-pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.05); }
@@ -311,9 +521,51 @@ export default function PetDisplay({ pet, isSleeping, onLongPress }: PetDisplayP
           60% { transform: translateX(-3px) rotate(-2deg); }
           80% { transform: translateX(3px) rotate(2deg); }
         }
+        @keyframes special-sparkle {
+          0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
+          25% { transform: translateY(-8px) scale(1.06); filter: brightness(1.15); }
+          50% { transform: translateY(-4px) scale(1.03) rotate(2deg); filter: brightness(1.2); }
+          75% { transform: translateY(-10px) scale(1.08) rotate(-2deg); filter: brightness(1.1); }
+        }
         @keyframes float-up {
           0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
           100% { opacity: 0; transform: translate(-50%, -30px) scale(1.3); }
+        }
+        @keyframes touch-squish {
+          0% { transform: scale(1); }
+          35% { transform: scale(1.1, 0.92); }
+          70% { transform: scale(0.96, 1.06); }
+          100% { transform: scale(1); }
+        }
+        @keyframes touch-hop {
+          0% { transform: translateY(0) scale(1); }
+          40% { transform: translateY(-18px) scale(1.05); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes touch-tilt-left {
+          0% { transform: rotate(0deg); }
+          40% { transform: rotate(-8deg) scale(1.04); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes touch-tilt-right {
+          0% { transform: rotate(0deg); }
+          40% { transform: rotate(8deg) scale(1.04); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes touch-egg-shake {
+          0%, 100% { transform: rotate(0deg); }
+          20% { transform: rotate(-6deg); }
+          40% { transform: rotate(6deg); }
+          60% { transform: rotate(-4deg); }
+          80% { transform: rotate(4deg); }
+        }
+        @keyframes touch-particle-rise {
+          0% { opacity: 0; transform: translateY(8px) scale(0.6); }
+          25% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-36px) scale(1.2); }
+        }
+        .animate-touch-particle {
+          animation: touch-particle-rise 1s ease-out forwards;
         }
         .animate-float-up {
           animation: float-up 1s ease-out forwards;
@@ -387,6 +639,7 @@ function actionLabel(action: PetAction): string {
     playing: '신나게 놀이 중!',
     cleaning: '뽀득뽀득 목욕 중~',
     sleeping: '쿨쿨...',
+    special: '특수 스킬 발동!',
   };
   return labels[action];
 }
@@ -398,6 +651,7 @@ function emotionColor(emotion: Emotion): string {
     hungry: '#6C5CE7',
     dirty: '#A0522D',
     tired: '#636E72',
+    bored: '#74B9FF',
     love: '#E84393',
   };
   return colors[emotion];

@@ -14,6 +14,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { getDatabase, ref, get, set, runTransaction } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -23,12 +24,42 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+export const functions = getFunctions(app, 'us-central1');
+
+export interface VerifyGooglePlayPurchaseInput {
+  productId: string;
+  purchaseToken: string;
+  transactionId?: string;
+  purchaseId?: string;
+  quantity?: number;
+}
+
+export interface VerifyGooglePlayPurchaseResult {
+  success: true;
+  alreadyGranted: boolean;
+  productId: string;
+  amount: number;
+  quantity: number;
+  purchaseKey: string;
+  gems: number;
+  grantedAt: number;
+}
+
+export async function verifyGooglePlayPurchase(
+  input: VerifyGooglePlayPurchaseInput
+): Promise<VerifyGooglePlayPurchaseResult> {
+  const callable = httpsCallable<VerifyGooglePlayPurchaseInput, VerifyGooglePlayPurchaseResult>(
+    functions,
+    'verifyPurchaseAndGrantGems'
+  );
+  const result = await callable(input);
+  return result.data;
+}
 
 /** 익명 로그인 후 User 반환. 이미 로그인 중이면 현재 유저 반환 */
 export async function ensureAnonymousAuth(): Promise<User> {
@@ -47,39 +78,114 @@ export function isGoogleLinked(user: User | null = auth.currentUser): boolean {
 }
 
 function getAuthErrorCode(error: unknown): string | undefined {
-  return typeof error === 'object' && error !== null && 'code' in error
-    ? String((error as { code?: unknown }).code)
-    : undefined;
+  if (typeof error !== 'object' || error === null) return undefined;
+  const record = error as { code?: unknown; errorCode?: unknown };
+  if (record.code != null) return String(record.code);
+  if (record.errorCode != null) return String(record.errorCode);
+  return undefined;
+}
+
+function getAuthErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message?: unknown }).message ?? '');
+  }
+  return '';
+}
+
+function isGoogleSignInCancelled(error: unknown): boolean {
+  const code = getAuthErrorCode(error);
+  const message = getAuthErrorMessage(error).toLowerCase();
+  return (
+    code === 'auth/popup-closed-by-user'
+    || code === 'auth/cancelled-popup-request'
+    || code === 'auth/user-cancelled'
+    || message.includes('cancel')
+    || message.includes('취소')
+  );
+}
+
+function isGoogleDeveloperConfigError(error: unknown): boolean {
+  const code = getAuthErrorCode(error);
+  const message = getAuthErrorMessage(error);
+  return (
+    code === '10'
+    || code === '12501'
+    || message.includes('DEVELOPER_ERROR')
+    || /(?:^|\D)10(?::|\s)/.test(message)
+    || message.includes('ApiException: 10')
+    || message.includes('default_web_client_id')
+  );
 }
 
 function getGoogleAuthFailureMessage(error: unknown): string {
   const code = getAuthErrorCode(error);
+  const message = getAuthErrorMessage(error);
+
+  if (isGoogleSignInCancelled(error)) {
+    return 'Google 로그인 창이 닫혀 연결을 취소했습니다.';
+  }
+  if (isGoogleDeveloperConfigError(error)) {
+    return 'Google 로그인 설정이 아직 완료되지 않았습니다. Firebase Console에 Android 앱(com.pocketegg.game)의 SHA-1 지문을 등록하고 google-services.json을 다시 받아 빌드해 주세요.';
+  }
   if (code === 'auth/credential-already-in-use' || code === 'auth/account-exists-with-different-credential') {
     return '이미 다른 저장 데이터에 연결된 Google 계정입니다. 현재 익명 데이터는 덮어쓰지 않았습니다. 기존 데이터를 불러오려면 아래의 "기존 Google 계정으로 복원"을 사용해 주세요.';
   }
   if (code === 'auth/provider-already-linked') {
     return '이미 Google 계정이 연결되어 있습니다.';
   }
-  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-    return 'Google 로그인 창이 닫혀 연결을 취소했습니다.';
+  if (code === 'auth/invalid-credential' || code === 'auth/invalid-id-token') {
+    return 'Google 인증 정보가 유효하지 않습니다. 앱을 완전히 종료한 뒤 다시 시도해 주세요.';
+  }
+  if (code === 'auth/operation-not-allowed') {
+    return 'Firebase Console에서 Google 로그인 제공업체가 비활성화되어 있습니다. Authentication > Sign-in method에서 Google을 사용 설정해 주세요.';
   }
   if (code === 'auth/network-request-failed') {
     return '네트워크 연결을 확인한 뒤 다시 시도해 주세요.';
   }
+  if (message.includes('Google 인증 토큰을 받지 못했습니다')) {
+    return message;
+  }
+  if (message) {
+    return `Google 계정 처리 중 오류가 발생했습니다. (${message})`;
+  }
   return 'Google 계정 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
 }
 
-async function getNativeGoogleCredential(): Promise<AuthCredential> {
-  const result = await FirebaseAuthentication.signInWithGoogle({
-    skipNativeAuth: true,
-    scopes: ['profile', 'email'],
-  });
-  const idToken = result.credential?.idToken ?? null;
-  const accessToken = result.credential?.accessToken ?? null;
+function toGoogleAuthCredential(
+  idToken: string | null,
+  accessToken: string | null,
+): AuthCredential {
   if (!idToken && !accessToken) {
     throw new Error('Google 인증 토큰을 받지 못했습니다.');
   }
-  return GoogleAuthProvider.credential(idToken, accessToken);
+  return GoogleAuthProvider.credential(idToken, accessToken ?? undefined);
+}
+
+async function requestNativeGoogleSignIn(
+  useCredentialManager: boolean,
+): Promise<AuthCredential> {
+  // Android Credential Manager는 scopes가 있으면 추가 OAuth 승인 단계를 거치며 실패하기 쉽다.
+  // Firebase link/signIn에는 idToken만 있으면 충분하다.
+  const result = await FirebaseAuthentication.signInWithGoogle({
+    skipNativeAuth: true,
+    useCredentialManager,
+  });
+  const idToken = result.credential?.idToken ?? null;
+  const accessToken = result.credential?.accessToken ?? null;
+  return toGoogleAuthCredential(idToken, accessToken);
+}
+
+async function getNativeGoogleCredential(): Promise<AuthCredential> {
+  try {
+    return await requestNativeGoogleSignIn(true);
+  } catch (primaryError) {
+    if (isGoogleSignInCancelled(primaryError)) {
+      throw primaryError;
+    }
+    console.warn('[Firebase] Credential Manager Google sign-in 실패, classic flow 재시도:', primaryError);
+    return requestNativeGoogleSignIn(false);
+  }
 }
 
 export interface GoogleAccountResult {

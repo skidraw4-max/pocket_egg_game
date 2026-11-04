@@ -3,15 +3,16 @@
  * Cozy Nursery: 능력치, 성장 트레이트, 경험치 바
  */
 import { useGame } from '@/contexts/GameContext';
-import { getCharacterImage } from '@/lib/gameState';
+import { useCharacterImage } from '@/hooks/useCharacterSkin';
 import { useState, useRef } from 'react';
 
 interface PetProfileProps {
   onClose: () => void;
   onResetPet?: () => void;
+  onOpenGuide?: () => void;
 }
 
-export default function PetProfile({ onClose, onResetPet }: PetProfileProps) {
+export default function PetProfile({ onClose, onResetPet, onOpenGuide }: PetProfileProps) {
   const { state, rename } = useGame();
   const { pet, status } = state;
   const [isEditingName, setIsEditingName] = useState(false);
@@ -48,7 +49,7 @@ export default function PetProfile({ onClose, onResetPet }: PetProfileProps) {
 
   const maxTrait = Math.max(pet.traits.power, pet.traits.intelligence, pet.traits.charm, pet.traits.vitality, 1);
 
-  const petImageUrl = getCharacterImage(pet.species, pet.stage);
+  const petImageUrl = useCharacterImage(pet.species, pet.stage);
 
   const STAGE_LABEL: Record<string, string> = {
     egg: '알',
@@ -64,20 +65,32 @@ export default function PetProfile({ onClose, onResetPet }: PetProfileProps) {
   });
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm overlay-screen" onClick={onClose}>
       <div
-        className="w-[90%] max-w-sm bg-white/95 backdrop-blur-lg rounded-3xl p-5 shadow-2xl animate-pop-in max-h-[85vh] overflow-y-auto"
+        className="w-[90%] max-w-sm bg-white/95 backdrop-blur-lg rounded-3xl p-5 pb-app-safe shadow-2xl animate-pop-in max-h-[min(85dvh,100%)] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-warm-brown">반려몬 프로필</h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sub-brown"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenGuide && (
+              <button
+                type="button"
+                onClick={onOpenGuide}
+                className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-sm font-bold"
+                title="가이드"
+              >
+                📖
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sub-brown"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* 반려몬 카드 */}

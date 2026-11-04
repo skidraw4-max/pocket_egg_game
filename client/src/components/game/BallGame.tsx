@@ -322,7 +322,7 @@ export default function BallGame({ onClose }: BallGameProps) {
       style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 50%, #1e1b4b 100%)' }}
     >
       {/* 상단 HUD */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      <div className="flex items-center justify-between px-4 pt-app-safe pb-2">
         <div className="flex flex-col items-center">
           <div className="text-2xl font-extrabold" style={{ color: timerColor, fontFamily: 'Nunito, sans-serif' }}>
             {timeLeft}

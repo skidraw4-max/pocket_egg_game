@@ -1,0 +1,19 @@
+{
+  "version": "p4-ai-illustrated-v1",
+  "generatedAt": "2026-09-03",
+  "speciesCount": 17,
+  "spritesPerSpecies": 60,
+  "totalSprites": 1020,
+  "sheetsDir": "client/public/characters/status-illustrated/sheets",
+  "spritesDir": "client/public/characters/status-illustrated/modern",
+  "species": [
+    "basicmon", "powermon", "wizmon", "lovelemon", "greenmon", "thundermon",
+    "dragonmon", "magicmon", "angelmon", "forestmon", "moonlightmon", "crystalmon",
+    "legendmon", "infernomon", "oraclemon", "seraphimon", "gaiamon"
+  ],
+  "stats": ["clean", "fatigue", "hunger", "mood"],
+  "tiers": ["60", "30", "10"],
+  "stages": ["baby", "child", "teen", "adult", "mythic"],
+  "applyCommand": "python scripts/apply-illustrated-status-sprites.py",
+  "applyDryRun": "python scripts/apply-illustrated-status-sprites.py --dry-run"
+}

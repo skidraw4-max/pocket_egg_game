@@ -1,0 +1,286 @@
+[
+  {
+    "skin": "modern",
+    "file": "egg_포켓에그_card.png",
+    "name": "포켓 에그",
+    "type": "promo"
+  },
+  {
+    "skin": "modern",
+    "id": "basicmon",
+    "name": "기본몬",
+    "stage": "baby",
+    "grade": "normal",
+    "file": "basicmon_기본몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "powermon",
+    "name": "파워몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "powermon_파워몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "wizmon",
+    "name": "위즈몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "wizmon_위즈몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "lovelemon",
+    "name": "러블리몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "lovelemon_러블리몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "greenmon",
+    "name": "그린몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "greenmon_그린몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "thundermon",
+    "name": "번개몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "thundermon_번개몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "dragonmon",
+    "name": "드래곤몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "dragonmon_드래곤몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "magicmon",
+    "name": "매직몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "magicmon_매직몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "angelmon",
+    "name": "엔젤몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "angelmon_엔젤몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "forestmon",
+    "name": "포레스몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "forestmon_포레스몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "moonlightmon",
+    "name": "문라이트몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "moonlightmon_문라이트몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "crystalmon",
+    "name": "크리스탈몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "crystalmon_크리스탈몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "legendmon",
+    "name": "레전드몬",
+    "stage": "adult",
+    "grade": "epic",
+    "file": "legendmon_레전드몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "infernomon",
+    "name": "인페르노몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "infernomon_인페르노몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "oraclemon",
+    "name": "오라클몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "oraclemon_오라클몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "seraphimon",
+    "name": "세라피몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "seraphimon_세라피몬_card.png"
+  },
+  {
+    "skin": "modern",
+    "id": "gaiamon",
+    "name": "가이아몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "gaiamon_가이아몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "file": "egg_포켓에그_card.png",
+    "name": "포켓 에그",
+    "type": "promo"
+  },
+  {
+    "skin": "classic",
+    "id": "basicmon",
+    "name": "기본몬",
+    "stage": "baby",
+    "grade": "normal",
+    "file": "basicmon_기본몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "powermon",
+    "name": "파워몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "powermon_파워몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "wizmon",
+    "name": "위즈몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "wizmon_위즈몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "lovelemon",
+    "name": "러블리몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "lovelemon_러블리몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "greenmon",
+    "name": "그린몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "greenmon_그린몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "thundermon",
+    "name": "번개몬",
+    "stage": "child",
+    "grade": "uncommon",
+    "file": "thundermon_번개몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "dragonmon",
+    "name": "드래곤몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "dragonmon_드래곤몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "magicmon",
+    "name": "매직몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "magicmon_매직몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "angelmon",
+    "name": "엔젤몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "angelmon_엔젤몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "forestmon",
+    "name": "포레스몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "forestmon_포레스몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "moonlightmon",
+    "name": "문라이트몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "moonlightmon_문라이트몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "crystalmon",
+    "name": "크리스탈몬",
+    "stage": "teen",
+    "grade": "rare",
+    "file": "crystalmon_크리스탈몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "legendmon",
+    "name": "레전드몬",
+    "stage": "adult",
+    "grade": "epic",
+    "file": "legendmon_레전드몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "infernomon",
+    "name": "인페르노몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "infernomon_인페르노몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "oraclemon",
+    "name": "오라클몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "oraclemon_오라클몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "seraphimon",
+    "name": "세라피몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "seraphimon_세라피몬_card.png"
+  },
+  {
+    "skin": "classic",
+    "id": "gaiamon",
+    "name": "가이아몬",
+    "stage": "mythic",
+    "grade": "legend",
+    "file": "gaiamon_가이아몬_card.png"
+  }
+]

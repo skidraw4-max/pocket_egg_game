@@ -89,7 +89,7 @@ export default function EggGachaScreen({ onSelect }: EggGachaScreenProps) {
   if (phase === 'intro') {
     return (
       <div
-        className="absolute inset-0 z-[300] flex flex-col items-center justify-center overflow-hidden"
+        className="absolute inset-0 z-[300] flex flex-col items-center justify-center overflow-hidden pt-app-safe pb-app-safe"
         style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 50%, #1e1b4b 100%)' }}
       >
         {/* 별 배경 */}
@@ -157,7 +157,7 @@ export default function EggGachaScreen({ onSelect }: EggGachaScreenProps) {
   if (phase === 'rolling') {
     return (
       <div
-        className="absolute inset-0 z-[300] flex flex-col items-center justify-center overflow-hidden"
+        className="absolute inset-0 z-[300] flex flex-col items-center justify-center overflow-hidden pt-app-safe pb-app-safe"
         style={{ background: 'linear-gradient(160deg, #1e1b4b 0%, #4c1d95 50%, #1e1b4b 100%)' }}
       >
         <div className="text-white/60 text-sm mb-6 animate-pulse">뽑는 중...</div>
@@ -199,7 +199,7 @@ export default function EggGachaScreen({ onSelect }: EggGachaScreenProps) {
 
     return (
       <div
-        className="absolute inset-0 z-[300] flex flex-col items-center overflow-y-auto py-8 px-6"
+        className="absolute inset-0 z-[300] flex flex-col items-center overflow-y-auto px-6 pt-app-safe pb-app-safe"
         style={{ background: GRADE_BG[rolledEgg.grade] ?? GRADE_BG.rare }}
       >
         {/* 등급 이펙트 */}

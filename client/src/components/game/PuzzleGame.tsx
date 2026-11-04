@@ -8,14 +8,30 @@ import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/contexts/GameContext';
 import { calcPuzzleReward, FRAGMENT_DROP_RATES, type PuzzleGameRewardResult } from '@/lib/gameState';
 import { TUTORIALS } from '@/lib/tutorialData';
+import BottomSheetPanel from '@/components/ui/BottomSheetPanel';
+import { showRewardedAd } from '@/lib/admob';
+import { TNK_PLACEMENT_PUZZLE_HINT } from '@/lib/tnkConfig';
+import {
+  PUZZLE_HINT_GEM_COST,
+  PUZZLE_HINT_PER_GAME_MAX,
+  PUZZLE_HINT_DAILY_MAX,
+  PUZZLE_SHUFFLE_ITERATIONS,
+} from '@/lib/puzzleHints';
+import {
+  applyPuzzleMove,
+  findNextOptimalMove,
+  isPuzzleSolved,
+  PUZZLE_GOAL,
+  type PuzzleBoard,
+} from '@/lib/puzzleSolver';
 
 interface PuzzleGameProps {
   onClose: () => void;
 }
 
-type Board = number[]; // 0 = 빈칸, 1~8 = 타일
+type Board = PuzzleBoard;
 
-const GOAL: Board = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+const GOAL: Board = PUZZLE_GOAL;
 const TILE_EMOJIS: Record<number, string> = {
   1: '⭐', 2: '🌙', 3: '✨',
   4: '💫', 5: '🌟', 6: '🔮',
@@ -30,7 +46,7 @@ function getFragmentDropChance(dropItem: NonNullable<PuzzleGameRewardResult['dro
 }
 
 function isSolved(board: Board): boolean {
-  return board.every((v, i) => v === GOAL[i]);
+  return isPuzzleSolved(board);
 }
 
 function getNeighbors(index: number): number[] {
@@ -46,7 +62,7 @@ function getNeighbors(index: number): number[] {
 
 function shuffle(board: Board): Board {
   let b = [...board];
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < PUZZLE_SHUFFLE_ITERATIONS; i++) {
     const emptyIdx = b.indexOf(0);
     const neighbors = getNeighbors(emptyIdx);
     const target = neighbors[Math.floor(Math.random() * neighbors.length)];
@@ -104,9 +120,22 @@ function GoalPreview() {
 }
 
 export default function PuzzleGame({ onClose }: PuzzleGameProps) {
-  const { playPuzzleGame } = useGame();
+  const {
+    playPuzzleGame,
+    state,
+    payForPuzzleHintWithGems,
+    recordPuzzleHintFromAd,
+    puzzleHintsRemainingToday,
+    puzzleHintCredits,
+    canPayForPuzzleHint,
+  } = useGame();
   const [board, setBoard] = useState<Board>(() => shuffle([...GOAL]));
   const [moves, setMoves] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hintHighlight, setHintHighlight] = useState<number | null>(null);
+  const [showHintPanel, setShowHintPanel] = useState(false);
+  const [hintLoading, setHintLoading] = useState(false);
+  const [hintToast, setHintToast] = useState<string | null>(null);
   const [solved, setSolved] = useState(false);
   const [rewarded, setRewarded] = useState(false);
   const [showConfirmExit, setShowConfirmExit] = useState(false);
@@ -114,6 +143,96 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
   const [showHelp, setShowHelp] = useState(false);
 
   const tutorial = TUTORIALS['toy_puzzle'];
+  const hintsLeftThisGame = PUZZLE_HINT_PER_GAME_MAX - hintsUsed;
+
+  const showHintMessage = (msg: string) => {
+    setHintToast(msg);
+    setTimeout(() => setHintToast(null), 3500);
+  };
+
+  const executeHintMove = useCallback(() => {
+    const clickIdx = findNextOptimalMove(board);
+    if (clickIdx == null) {
+      showHintMessage('이미 완성 직전이에요!');
+      return false;
+    }
+    setHintHighlight(clickIdx);
+    const next = applyPuzzleMove(board, clickIdx);
+    if (!next) return false;
+    setBoard(next);
+    setMoves(m => m + 1);
+    setHintsUsed(h => h + 1);
+    setTimeout(() => setHintHighlight(null), 600);
+    return true;
+  }, [board]);
+
+  const canApplyHintMove = () => findNextOptimalMove(board) != null;
+
+  const handleHintWithGems = () => {
+    if (hintsLeftThisGame <= 0) {
+      showHintMessage('이번 판 힌트는 모두 사용했어요.');
+      return;
+    }
+    if (puzzleHintsRemainingToday <= 0) {
+      showHintMessage('오늘 힌트 횟수를 모두 사용했어요.');
+      return;
+    }
+    if (!canApplyHintMove()) {
+      showHintMessage('이미 완성 직전이에요!');
+      return;
+    }
+    if (!canPayForPuzzleHint) {
+      showHintMessage(
+        puzzleHintCredits > 0
+          ? '오늘 힌트 횟수를 모두 사용했어요.'
+          : `💎 ${PUZZLE_HINT_GEM_COST}개 또는 힌트권이 필요해요.`,
+      );
+      return;
+    }
+    if (!payForPuzzleHintWithGems()) return;
+    if (executeHintMove()) {
+      setShowHintPanel(false);
+      showHintMessage('💡 힌트 1수 적용!');
+    }
+  };
+
+  const handleHintWithAd = async () => {
+    if (hintLoading) return;
+    if (hintsLeftThisGame <= 0) {
+      showHintMessage('이번 판 힌트는 모두 사용했어요.');
+      return;
+    }
+    if (puzzleHintsRemainingToday <= 0) {
+      showHintMessage('오늘 힌트 횟수를 모두 사용했어요.');
+      return;
+    }
+    if (!canApplyHintMove()) {
+      showHintMessage('이미 완성 직전이에요!');
+      return;
+    }
+    setHintLoading(true);
+    try {
+      const result = await showRewardedAd(TNK_PLACEMENT_PUZZLE_HINT);
+      if (!result.rewarded) {
+        if (result.reason === 'web_unsupported') {
+          showHintMessage('📱 광고는 Android 앱에서 이용 가능해요. 💎로도 사용할 수 있어요.');
+        } else {
+          showHintMessage('광고를 끝까지 시청해야 힌트를 받을 수 있어요.');
+        }
+        return;
+      }
+      if (!recordPuzzleHintFromAd()) {
+        showHintMessage('오늘 힌트 횟수를 모두 사용했어요.');
+        return;
+      }
+      if (executeHintMove()) {
+        setShowHintPanel(false);
+        showHintMessage('💡 광고 시청 후 1수 적용!');
+      }
+    } finally {
+      setHintLoading(false);
+    }
+  };
 
   const handleTileClick = useCallback((index: number) => {
     if (solved) return;
@@ -133,15 +252,17 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
     if (isSolved(board) && moves > 0 && !rewarded) {
       setSolved(true);
       setRewarded(true);
-      const reward = calcPuzzleReward(moves);
+      const reward = calcPuzzleReward(moves, hintsUsed);
       setPuzzleReward(reward);
       playPuzzleGame(reward);
     }
-  }, [board, moves, rewarded, playPuzzleGame]);
+  }, [board, moves, hintsUsed, rewarded, playPuzzleGame]);
 
   const handleReset = () => {
     setBoard(shuffle([...GOAL]));
     setMoves(0);
+    setHintsUsed(0);
+    setHintHighlight(null);
     setSolved(false);
     setRewarded(false);
     setPuzzleReward(null);
@@ -158,7 +279,7 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-[oklch(0.97_0.02_80)] animate-fade-in">
       {/* 상단 헤더 */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+      <div className="flex items-center justify-between px-5 pt-app-safe pb-3">
         <button
           onClick={handleExitRequest}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 shadow text-sm font-semibold text-warm-brown border border-border"
@@ -168,12 +289,23 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         <h2 className="text-base font-bold text-warm-brown flex items-center gap-1.5">
           ⭐ 별 퍼즐
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="text-sm text-sub-brown font-medium">
-            {moves}번 이동
+            {moves}번 · 💡{hintsUsed}
           </div>
-          {/* ❓ 도움말 버튼 (방식 2) */}
+          {!solved && (
+            <button
+              type="button"
+              onClick={() => setShowHintPanel(true)}
+              className="w-8 h-8 rounded-full bg-amber-100 shadow border border-amber-300 flex items-center justify-center text-base hover:bg-amber-200 transition-colors"
+              aria-label="힌트"
+              title="1수 힌트"
+            >
+              💡
+            </button>
+          )}
           <button
+            type="button"
             onClick={() => setShowHelp(true)}
             className="w-8 h-8 rounded-full bg-white/80 shadow border border-border flex items-center justify-center text-base font-bold text-sub-brown hover:bg-amber-50 transition-colors"
             aria-label="도움말"
@@ -210,6 +342,8 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
                       ? 'bg-amber-100/40 border-2 border-dashed border-amber-200 cursor-default'
                       : solved
                         ? 'bg-mint/30 border-2 border-mint scale-100 cursor-default shadow'
+                        : hintHighlight === index
+                          ? 'bg-yellow-100 border-2 border-yellow-400 shadow-lg ring-2 ring-yellow-300 scale-105'
                         : isCorrectPos
                           ? 'bg-amber-50 border-2 border-amber-300 shadow-md cushion-btn active:scale-95'
                           : 'bg-white shadow-md border border-border cushion-btn active:scale-95'
@@ -270,6 +404,9 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
           <p className="text-sm text-sub-brown mb-1">
             {moves}번 만에 풀었어요!
           </p>
+          {puzzleReward && hintsUsed >= 3 && puzzleReward.grade === 'normal' && (
+            <p className="text-[10px] text-sub-brown mb-2">💡 힌트 3회+ 사용 — 등급 일반 이하</p>
+          )}
           {puzzleReward && (
             <div className="mb-3">
               <div className="flex justify-center gap-3">
@@ -383,96 +520,157 @@ export default function PuzzleGame({ onClose }: PuzzleGameProps) {
         </div>
       )}
 
+      {/* 💡 힌트 패널 */}
+      {showHintPanel && !solved && (
+        <div
+          className="absolute inset-0 z-60 flex items-end bg-black/45"
+          onClick={() => !hintLoading && setShowHintPanel(false)}
+        >
+          <BottomSheetPanel
+            className="w-full bg-white rounded-t-3xl shadow-2xl"
+            maxHeight="85"
+            onClick={e => e.stopPropagation()}
+            bodyClassName="px-5 pt-5"
+            footerClassName="border-t-0 bg-white space-y-2"
+            footer={
+              <>
+                <button
+                  type="button"
+                  disabled={hintLoading || hintsLeftThisGame <= 0 || puzzleHintsRemainingToday <= 0}
+                  onClick={handleHintWithAd}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-green-400 to-emerald-500 text-white text-sm font-bold disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {hintLoading ? '광고 불러오는 중…' : '📺 광고 보고 1수 힌트'}
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    hintLoading ||
+                    hintsLeftThisGame <= 0 ||
+                    puzzleHintsRemainingToday <= 0 ||
+                    !canPayForPuzzleHint
+                  }
+                  onClick={handleHintWithGems}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-400 to-violet-500 text-white text-sm font-bold disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {puzzleHintCredits > 0
+                    ? `💡 힌트권 1회 사용 (남은 ${puzzleHintCredits}회)`
+                    : `💎 ${PUZZLE_HINT_GEM_COST}개로 1수 힌트 (보유 ${state.gems})`}
+                </button>
+              </>
+            }
+            header={
+              <div className="px-5 pt-5 flex items-center justify-between">
+                <h3 className="text-base font-bold text-warm-brown">💡 1수 힌트</h3>
+                <button type="button" onClick={() => setShowHintPanel(false)} className="text-sub-brown">
+                  ✕
+                </button>
+              </div>
+            }
+          >
+            <p className="text-xs text-sub-brown mb-3 leading-relaxed">
+              다음 최선의 한 수를 자동으로 옮겨요. 힌트 1회 = 이동 +1 · 3회 이상 사용 시 퍼펙트/우수 등급 불가
+            </p>
+            <p className="text-[10px] text-amber-700 font-semibold mb-3">
+              이번 판 {hintsLeftThisGame}/{PUZZLE_HINT_PER_GAME_MAX} · 오늘 {puzzleHintsRemainingToday}/
+              {PUZZLE_HINT_DAILY_MAX}
+              {puzzleHintCredits > 0 && ` · 힌트권 ${puzzleHintCredits}회`}
+            </p>
+          </BottomSheetPanel>
+        </div>
+      )}
+
+      {hintToast && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-full bg-warm-brown/90 text-white text-xs font-semibold shadow-lg max-w-[90%] text-center">
+          {hintToast}
+        </div>
+      )}
+
       {/* ❓ 도움말 오버레이 (방식 2) */}
       {showHelp && (
         <div
           className="absolute inset-0 z-60 flex items-end bg-black/50"
           onClick={() => setShowHelp(false)}
         >
-          <div
-            className="w-full bg-white rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up"
-            style={{ maxHeight: '85vh' }}
+          <BottomSheetPanel
+            className="bg-white rounded-t-3xl shadow-2xl"
+            maxHeight="85"
             onClick={e => e.stopPropagation()}
-          >
-            {/* 헤더 */}
-            <div className="bg-gradient-to-r from-amber-400 to-orange-400 px-5 pt-5 pb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{tutorial.gameIcon}</span>
-                <div>
-                  <h3 className="text-base font-bold text-white">{tutorial.gameTitle} 도움말</h3>
-                  <p className="text-xs text-white/80">{tutorial.subtitle}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* 본문 스크롤 */}
-            <div className="overflow-y-auto px-5 py-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
-              {/* 게임 방법 */}
-              <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
-                <span>📖</span> 게임 방법
-              </h4>
-              <div className="space-y-2 mb-4">
-                {tutorial.steps.map((step, idx) => (
-                  <div key={idx} className="flex items-start gap-3 bg-cream rounded-2xl p-3">
-                    <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-base">{step.icon}</span>
-                        <span className="text-sm font-semibold text-warm-brown">{step.title}</span>
-                      </div>
-                      <p className="text-xs text-sub-brown leading-relaxed">{step.description}</p>
-                    </div>
+            bodyClassName="px-5 py-4"
+            header={
+              <div className="bg-gradient-to-r from-amber-400 to-orange-400 px-5 pt-5 pb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{tutorial.gameIcon}</span>
+                  <div>
+                    <h3 className="text-base font-bold text-white">{tutorial.gameTitle} 도움말</h3>
+                    <p className="text-xs text-white/80">{tutorial.subtitle}</p>
                   </div>
-                ))}
-              </div>
-
-              {/* 보상 안내 */}
-              {tutorial.rewards && (
-                <>
-                  <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
-                    <span>🎁</span> 보상 안내
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    {tutorial.rewards.map((r, idx) => (
-                      <div key={idx} className={`rounded-2xl p-3 border-2 ${r.color}`}>
-                        <div className="text-sm font-bold mb-0.5">{r.grade}</div>
-                        <div className="text-xs text-sub-brown mb-1">{r.condition}</div>
-                        <div className="text-xs font-semibold text-warm-brown">{r.reward}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* 팁 */}
-              {tutorial.tip && (
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4">
-                  <p className="text-xs text-blue-700 flex items-start gap-1.5">
-                    <span className="text-base flex-shrink-0">💡</span>
-                    <span>{tutorial.tip}</span>
-                  </p>
                 </div>
-              )}
-            </div>
-
-            {/* 닫기 버튼 */}
-            <div className="px-5 pb-6 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowHelp(false)}
+                  className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+            }
+            footer={
               <button
+                type="button"
                 onClick={() => setShowHelp(false)}
                 className="w-full py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold text-sm rounded-2xl shadow-md"
               >
                 계속 풀기 🎮
               </button>
+            }
+          >
+            <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
+              <span>📖</span> 게임 방법
+            </h4>
+            <div className="space-y-2 mb-4">
+              {tutorial.steps.map((step, idx) => (
+                <div key={idx} className="flex items-start gap-3 bg-cream rounded-2xl p-3">
+                  <div className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-base">{step.icon}</span>
+                      <span className="text-sm font-semibold text-warm-brown">{step.title}</span>
+                    </div>
+                    <p className="text-xs text-sub-brown leading-relaxed">{step.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+
+            {tutorial.rewards && (
+              <>
+                <h4 className="text-sm font-bold text-warm-brown mb-3 flex items-center gap-1">
+                  <span>🎁</span> 보상 안내
+                </h4>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {tutorial.rewards.map((r, idx) => (
+                    <div key={idx} className={`rounded-2xl p-3 border-2 ${r.color}`}>
+                      <div className="text-sm font-bold mb-0.5">{r.grade}</div>
+                      <div className="text-xs text-sub-brown mb-1">{r.condition}</div>
+                      <div className="text-xs font-semibold text-warm-brown">{r.reward}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {tutorial.tip && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4">
+                <p className="text-xs text-blue-700 flex items-start gap-1.5">
+                  <span className="text-base flex-shrink-0">💡</span>
+                  <span>{tutorial.tip}</span>
+                </p>
+              </div>
+            )}
+          </BottomSheetPanel>
         </div>
       )}
 

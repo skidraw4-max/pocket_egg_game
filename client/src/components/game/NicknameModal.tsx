@@ -139,8 +139,8 @@ export default function NicknameModal({ onClose }: NicknameModalProps) {
     && checkStatus !== 'checking';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm overlay-screen">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
 
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-5 text-center">

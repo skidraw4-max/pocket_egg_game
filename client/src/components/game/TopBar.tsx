@@ -4,6 +4,10 @@
  * 2행: 도감·미션·전당·소셜·닉네임 버튼 (작은 pill 형태)
  */
 import { useSound } from '@/hooks/useSound';
+import { useCharacterSkin } from '@/hooks/useCharacterSkin';
+import { openAdPrivacySettings, openPrivacyPolicy } from '@/lib/privacySettings';
+import { ACCOUNT_DATA_DELETION_URL } from '@/lib/siteConfig';
+import { publicAssetUrl } from '@/lib/publicAssets';
 import { useState } from 'react';
 
 interface TopBarProps {
@@ -32,25 +36,28 @@ export default function TopBar({
   syncing = false,
 }: TopBarProps) {
   const { isMuted, toggleMute, volume, setVolume } = useSound();
+  const { skin, setSkin } = useCharacterSkin();
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+
+  const toggleSkin = () => {
+    setSkin(skin === 'modern' ? 'classic' : 'modern');
+  };
 
   return (
     <div
       className="flex flex-col"
-      style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}
+      style={{
+        paddingTop: 'var(--app-safe-top)',
+        background: 'linear-gradient(135deg, #6B21A8 0%, #7C3AED 50%, #8B5CF6 100%)',
+        boxShadow: '0 2px 12px rgba(107,33,168,0.4)',
+      }}
     >
       {/* ── 1행: 보라색 헤더 바 ── */}
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{
-          background: 'linear-gradient(135deg, #6B21A8 0%, #7C3AED 50%, #8B5CF6 100%)',
-          boxShadow: '0 2px 12px rgba(107,33,168,0.4)',
-        }}
-      >
+      <div className="flex items-center justify-between px-3 py-2">
         {/* 로고 */}
         <div className="flex items-center gap-1.5">
           <img
-            src="https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2/pocket-egg-logo-TSp2CWP5nehvpiMprvz3VZ.webp"
+            src={publicAssetUrl('icon-192.png')}
             alt="포켓 에그"
             className="w-9 h-9 rounded-full shadow-md border-2 border-white/40"
           />
@@ -157,6 +164,31 @@ export default function TopBar({
                 >
                   {isMuted ? '🔊 음소거 해제' : '🔇 음소거'}
                 </button>
+
+                <div className="mt-3 pt-3 border-t border-purple-100 space-y-2">
+                  <p className="text-[10px] font-bold text-purple-600">개인정보</p>
+                  <button
+                    type="button"
+                    onClick={() => void openPrivacyPolicy()}
+                    className="w-full text-left text-xs font-semibold text-purple-800 underline-offset-2 hover:underline py-1"
+                  >
+                    개인정보 처리방침
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(ACCOUNT_DATA_DELETION_URL, '_blank', 'noopener,noreferrer')}
+                    className="w-full text-left text-xs font-semibold text-purple-800 underline-offset-2 hover:underline py-1"
+                  >
+                    계정·데이터 삭제 안내
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openAdPrivacySettings()}
+                    className="w-full text-left text-xs font-semibold text-purple-800 underline-offset-2 hover:underline py-1"
+                  >
+                    광고·개인정보 설정
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -228,6 +260,14 @@ export default function TopBar({
             )}
           </button>
         )}
+        <button
+          onClick={toggleSkin}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white/90 transition-all active:scale-95"
+          style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}
+          title="캐릭터 스타일 전환"
+        >
+          {skin === 'classic' ? '클래식' : '모던'}
+        </button>
       </div>
     </div>
   );

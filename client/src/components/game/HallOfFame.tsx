@@ -4,7 +4,8 @@
  * 뉴게임+ 시작 시 EggGachaScreen으로 전환
  */
 import { useGame } from '@/contexts/GameContext';
-import { getCharacterImage } from '@/lib/gameState';
+import { useCharacterImage } from '@/hooks/useCharacterSkin';
+import { SPECIES_REGISTRY } from '@/lib/speciesRegistry';
 import { useState } from 'react';
 import EggGachaScreen from '@/pages/EggGachaScreen';
 import type { GachaEggId } from '@/lib/eggTypes';
@@ -20,9 +21,9 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
 
   const pet = state.pet;
   const isMythic = pet.stage === 'mythic';
-  const legendImage = isMythic
-    ? getCharacterImage(pet.species, 'mythic')
-    : getCharacterImage('레전드몬', 'adult');
+  const mythicImage = useCharacterImage(pet.species, 'mythic');
+  const legendMonImage = useCharacterImage('레전드몬', 'adult');
+  const legendImage = isMythic ? mythicImage : legendMonImage;
 
   /** 가챠 결과 수신 → 뉴게임+ 실행 */
   const handleGachaSelect = (gachaEgg: GachaEggId) => {
@@ -38,7 +39,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
   // 뉴게임+ 확인 다이얼로그
   if (showConfirm) {
     return (
-      <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-screen">
         <div className="bg-white/95 rounded-3xl p-6 mx-6 shadow-2xl text-center">
           <div className="text-4xl mb-3">🔄</div>
           <h3 className="text-lg font-bold text-warm-brown mb-2">뉴게임+ 시작</h3>
@@ -95,7 +96,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
       {/* 닫기 버튼 */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 w-11 h-11 rounded-full bg-white/20 text-white flex items-center justify-center text-lg"
+        className="absolute top-app-safe right-app-safe z-10 w-11 h-11 rounded-full bg-white/20 text-white flex items-center justify-center text-lg"
       >
         ✕
       </button>
@@ -131,7 +132,7 @@ export default function HallOfFame({ onClose }: HallOfFameProps) {
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">도감 수집</p>
-            <p className="text-white font-bold">{(state.collection ?? []).length}/14</p>
+            <p className="text-white font-bold">{(state.collection ?? []).length}/{SPECIES_REGISTRY.length}</p>
           </div>
           <div className="text-center">
             <p className="text-white/50 text-[10px]">보유 코인</p>

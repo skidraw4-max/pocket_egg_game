@@ -1,0 +1,50 @@
+{
+  "sessionId": "310519663342761074",
+  "manuscdnBase": "https://files.manuscdn.com/user_upload_by_module/session_file/310519663342761074",
+  "cloudfrontBase": "https://d2xsxph8kpxj0f.cloudfront.net/310519663342761074/daLuxDLrpRKKbPdxD8Red2",
+  "firebaseMirrorBase": "https://pocket-egg.web.app/legacy-cdn/session_file/310519663342761074",
+  "characters": {
+    "jmaZyvsOnJMvxWkZ.png": { "id": "egg", "source": "characters/classic/egg.png", "fallback": "characters/egg.png" },
+    "vYMlLdcWDNYSCvto.png": { "id": "basicmon", "source": "characters/classic/basicmon.png" },
+    "zWEmPuSLhGOaAYNL.png": { "id": "powermon", "source": "characters/classic/powermon.png" },
+    "uemRAycroENKyiUi.png": { "id": "wizmon", "source": "characters/classic/wizmon.png" },
+    "iGosoxqAZEoVeUDu.png": { "id": "lovelemon", "source": "characters/classic/lovelemon.png" },
+    "ojaXIxQzVHXRtwPf.png": { "id": "greenmon", "source": "characters/classic/greenmon.png" },
+    "fcDgZeMQDQEJkluY.png": { "id": "dragonmon", "source": "characters/classic/dragonmon.png" },
+    "gFbUOfWspTQmeBOC.png": { "id": "angelmon", "source": "characters/classic/angelmon.png" },
+    "XDVPOQzwDfRIeAPB.png": { "id": "magicmon", "source": "characters/classic/magicmon.png" },
+    "faygnCzwHlhqKRQM.png": { "id": "forestmon", "source": "characters/classic/forestmon.png" },
+    "YYKMoVNGzMPjsSqk.png": { "id": "legendmon", "source": "characters/classic/legendmon.png" },
+    "xBuXYCrUPVpXktRf.png": { "id": "infernomon", "source": "characters/classic/infernomon.png" },
+    "hVJJEfOMCSEALgSK.png": { "id": "oraclemon", "source": "characters/classic/oraclemon.png" },
+    "kdIcJZiljQlwcbKB.png": { "id": "seraphimon", "source": "characters/classic/seraphimon.png" },
+    "aGOZMjYbpwqKTkml.png": { "id": "gaiamon", "source": "characters/classic/gaiamon.png" }
+  },
+  "wallpapersPng": {
+    "EDyFLiIKoVTNidnh.png": { "id": "wallpaper_forest", "source": "wallpapers/wallpaper_forest.webp", "convert": "webp_to_png" },
+    "fpjUTdQSftHkbLXj.png": { "id": "wallpaper_ocean", "source": "wallpapers/wallpaper_ocean.webp", "convert": "webp_to_png" },
+    "jQMljEkJnwaQEIjS.png": { "id": "wallpaper_cloud", "source": "wallpapers/wallpaper_cloud.webp", "convert": "webp_to_png" },
+    "vuxdWHKrUrCnFAUo.png": { "id": "wallpaper_candy", "source": "wallpapers/wallpaper_candy.webp", "convert": "webp_to_png" }
+  },
+  "titleAssets": {
+    "YSlzPwLAfBZIZzDk.png": { "id": "title_bg", "source": "images/title-bg.webp", "convert": "webp_to_png" },
+    "VMfNTgvHQyyUsWlF.png": { "id": "title_basicmon", "source": "characters/classic/basicmon.png" }
+  },
+  "cloudfront": {
+    "pocket-egg-room-bg-RWqGiSQbzfCq5GS93bZek3.webp": {
+      "id": "room_default",
+      "source": "wallpapers/wallpaper_default.webp",
+      "convert": "copy_webp"
+    },
+    "pocket-egg-logo-TSp2CWP5nehvpiMprvz3VZ.webp": {
+      "id": "logo",
+      "source": "icon-192.png",
+      "convert": "png_to_webp"
+    }
+  },
+  "notes": {
+    "storeAppRequiresExactCdnUrl": true,
+    "manusServiceChange": "https://help.manus.im/en/articles/16147895-service-change-overview-how-to-restore-your-data",
+    "firebaseMirrorDoesNotReplaceManuscdn": "미러는 웹/차기 버전용. 스토어 앱 즉시 복구는 Manus 복원 또는 동일 URL 재배포 필요"
+  }
+}

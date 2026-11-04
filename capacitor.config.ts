@@ -1,5 +1,32 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 import '@capacitor-firebase/authentication';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
+
+/** cap sync 시 .env (+ production 모드면 .env.production) 반영 */
+function loadEnvFiles() {
+  const projectRoot = process.cwd();
+  const loadEnvFile = (filename: string) => {
+    const filePath = join(projectRoot, filename);
+    if (!existsSync(filePath)) return;
+    for (const line of readFileSync(filePath, 'utf-8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const val = trimmed.slice(eq + 1).trim();
+      process.env[key] = val;
+    }
+  };
+
+  loadEnvFile('.env');
+  if (process.env.NODE_ENV === 'production') {
+    loadEnvFile('.env.production');
+  }
+}
+
+loadEnvFiles();
 
 const config: CapacitorConfig = {
   appId: 'com.pocketegg.game',
@@ -9,12 +36,6 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
-    AdMob: {
-      appId: {
-        android: 'ca-app-pub-2237287742271246~1509205555',
-      },
-      initializeForTesting: false,
-    },
     SplashScreen: {
       launchShowDuration: 2500,
       launchAutoHide: true,
@@ -28,10 +49,16 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#7c3aed',
+      overlaysWebView: true,
     },
     FirebaseAuthentication: {
       skipNativeAuth: true,
       providers: ['google.com'],
+    },
+    SystemBars: {
+      insetsHandling: 'css',
+      style: 'DARK',
+      hidden: false,
     },
   },
   android: {

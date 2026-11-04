@@ -4,180 +4,17 @@
  */
 import { useGame } from '@/contexts/GameContext';
 import { getCharacterImage } from '@/lib/gameState';
+import { useCharacterSkin } from '@/hooks/useCharacterSkin';
+import { ALL_MONS, type MonEntry } from '@/lib/speciesRegistry';
 import { useState } from 'react';
+import CollectionCharacterModal from './CollectionCharacterModal';
+import FullscreenOverlay from './FullscreenOverlay';
+
+export type { MonEntry };
 
 interface CollectionMenuProps {
   onClose: () => void;
 }
-
-interface MonEntry {
-  name: string;
-  stage: 'baby' | 'child' | 'teen' | 'adult' | 'mythic';
-  stageLabel: string;
-  icon: string;
-  description: string;
-  traitHint: string;
-  gradeColor: string;
-  gradeBg: string;
-  gradeBorder: string;
-}
-
-const ALL_MONS: MonEntry[] = [
-  {
-    name: '기본몬',
-    stage: 'baby',
-    stageLabel: '노멀',
-    icon: '🥚',
-    description: '알에서 갓 태어난 순수한 반려몬',
-    traitHint: '모든 성향의 시작점',
-    gradeColor: '#9CA3AF',
-    gradeBg: '#F9FAFB',
-    gradeBorder: '#E5E7EB',
-  },
-  {
-    name: '파워몬',
-    stage: 'child',
-    stageLabel: '언커먼',
-    icon: '💪',
-    description: '힘이 넘치는 활발한 반려몬',
-    traitHint: '힘 성향 우세 시 진화',
-    gradeColor: '#22C55E',
-    gradeBg: '#F0FDF4',
-    gradeBorder: '#BBF7D0',
-  },
-  {
-    name: '위즈몬',
-    stage: 'child',
-    stageLabel: '언커먼',
-    icon: '🧠',
-    description: '호기심 가득한 똑똑한 반려몬',
-    traitHint: '지능 성향 우세 시 진화',
-    gradeColor: '#22C55E',
-    gradeBg: '#F0FDF4',
-    gradeBorder: '#BBF7D0',
-  },
-  {
-    name: '러블리몬',
-    stage: 'child',
-    stageLabel: '언커먼',
-    icon: '💖',
-    description: '사랑스러운 매력의 반려몬',
-    traitHint: '매력 성향 우세 시 진화',
-    gradeColor: '#22C55E',
-    gradeBg: '#F0FDF4',
-    gradeBorder: '#BBF7D0',
-  },
-  {
-    name: '그린몬',
-    stage: 'child',
-    stageLabel: '언커먼',
-    icon: '🌿',
-    description: '자연을 사랑하는 건강한 반려몬',
-    traitHint: '활력 성향 우세 시 진화',
-    gradeColor: '#22C55E',
-    gradeBg: '#F0FDF4',
-    gradeBorder: '#BBF7D0',
-  },
-  {
-    name: '드래곤몬',
-    stage: 'teen',
-    stageLabel: '레어',
-    icon: '🐉',
-    description: '강력한 힘을 가진 용 반려몬',
-    traitHint: '파워몬 → 힘 성향 심화',
-    gradeColor: '#3B82F6',
-    gradeBg: '#EFF6FF',
-    gradeBorder: '#BFDBFE',
-  },
-  {
-    name: '매직몬',
-    stage: 'teen',
-    stageLabel: '레어',
-    icon: '🔮',
-    description: '마법을 부리는 신비한 반려몬',
-    traitHint: '위즈몬 → 지능 성향 심화',
-    gradeColor: '#3B82F6',
-    gradeBg: '#EFF6FF',
-    gradeBorder: '#BFDBFE',
-  },
-  {
-    name: '엔젤몬',
-    stage: 'teen',
-    stageLabel: '레어',
-    icon: '👼',
-    description: '천사처럼 아름다운 반려몬',
-    traitHint: '러블리몬 → 매력 성향 심화',
-    gradeColor: '#3B82F6',
-    gradeBg: '#EFF6FF',
-    gradeBorder: '#BFDBFE',
-  },
-  {
-    name: '포레스몬',
-    stage: 'teen',
-    stageLabel: '레어',
-    icon: '🌳',
-    description: '숲의 수호자 반려몬',
-    traitHint: '그린몬 → 활력 성향 심화',
-    gradeColor: '#3B82F6',
-    gradeBg: '#EFF6FF',
-    gradeBorder: '#BFDBFE',
-  },
-  {
-    name: '레전드몬',
-    stage: 'adult',
-    stageLabel: '에픽',
-    icon: '👑',
-    description: '모든 속성을 초월한 전설의 반려몬',
-    traitHint: 'Lv.30 최종 진화',
-    gradeColor: '#A855F7',
-    gradeBg: '#FAF5FF',
-    gradeBorder: '#E9D5FF',
-  },
-  {
-    name: '인페르노몬',
-    stage: 'mythic',
-    stageLabel: '레전드',
-    icon: '🔥',
-    description: '화염을 지배하는 궁극의 드래곤 반려몬',
-    traitHint: '레전드몬 Lv.50 + 힘 성향 우세',
-    gradeColor: '#EAB308',
-    gradeBg: '#FEFCE8',
-    gradeBorder: '#FDE68A',
-  },
-  {
-    name: '오라클몬',
-    stage: 'mythic',
-    stageLabel: '레전드',
-    icon: '🔮',
-    description: '우주의 진리를 꿰뚫는 전지전능한 반려몬',
-    traitHint: '레전드몬 Lv.50 + 지능 성향 우세',
-    gradeColor: '#EAB308',
-    gradeBg: '#FEFCE8',
-    gradeBorder: '#FDE68A',
-  },
-  {
-    name: '세라피몬',
-    stage: 'mythic',
-    stageLabel: '레전드',
-    icon: '✨',
-    description: '신성한 빛을 발하는 최고의 천사 반려몬',
-    traitHint: '레전드몬 Lv.50 + 매력 성향 우세',
-    gradeColor: '#EAB308',
-    gradeBg: '#FEFCE8',
-    gradeBorder: '#FDE68A',
-  },
-  {
-    name: '가이아몬',
-    stage: 'mythic',
-    stageLabel: '레전드',
-    icon: '🌍',
-    description: '대지의 생명력을 담은 자연의 신 반려몬',
-    traitHint: '레전드몬 Lv.50 + 활력 성향 우세',
-    gradeColor: '#EAB308',
-    gradeBg: '#FEFCE8',
-    gradeBorder: '#FDE68A',
-  },
-];
 
 const GRADE_TABS = [
   { label: '전체', value: 'all', dot: '#9CA3AF' },
@@ -190,26 +27,25 @@ const GRADE_TABS = [
 
 export default function CollectionMenu({ onClose }: CollectionMenuProps) {
   const { state } = useGame();
+  const { skin } = useCharacterSkin();
   const collected = state.collection;
   const collectedCount = ALL_MONS.filter(m => collected.includes(m.name)).length;
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [selectedMon, setSelectedMon] = useState<MonEntry | null>(null);
 
   const filteredMons = activeTab === 'all'
     ? ALL_MONS
     : ALL_MONS.filter(m => m.stageLabel === activeTab);
 
   return (
-    <div
-      className="absolute inset-0 z-50 flex flex-col"
+    <FullscreenOverlay
+      zClassName="z-50"
       style={{
         background: 'linear-gradient(180deg, #4C1D95 0%, #5B21B6 30%, #6D28D9 100%)',
       }}
     >
       {/* 헤더 */}
-      <div
-        className="flex items-center justify-between px-4 py-3"
-        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-      >
+      <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={onClose}
           className="w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90"
@@ -264,17 +100,28 @@ export default function CollectionMenu({ onClose }: CollectionMenuProps) {
 
       {/* 카드 그리드 */}
       <div
-        className="flex-1 overflow-y-auto px-3 pb-4"
-        style={{ scrollbarWidth: 'none', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        className="flex-1 overflow-y-auto px-3 pb-app-safe"
+        style={{ scrollbarWidth: 'none' }}
       >
         <div className="grid grid-cols-3 gap-2.5">
           {filteredMons.map((mon, idx) => {
             const isCollected = collected.includes(mon.name);
-            const imgUrl = getCharacterImage(mon.name, mon.stage as any);
+            const imgUrl = getCharacterImage(mon.name, mon.stage as any, skin);
             return (
               <div
                 key={mon.name}
-                className="flex flex-col items-center rounded-2xl overflow-hidden transition-all active:scale-95"
+                role={isCollected ? 'button' : undefined}
+                tabIndex={isCollected ? 0 : undefined}
+                onClick={isCollected ? () => setSelectedMon(mon) : undefined}
+                onKeyDown={isCollected ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedMon(mon);
+                  }
+                } : undefined}
+                className={`flex flex-col items-center rounded-2xl overflow-hidden transition-all ${
+                  isCollected ? 'cursor-pointer active:scale-95' : 'cursor-default'
+                }`}
                 style={{
                   background: isCollected ? mon.gradeBg : '#1E1B4B',
                   border: `2px solid ${isCollected ? mon.gradeBorder : 'rgba(255,255,255,0.1)'}`,
@@ -342,15 +189,12 @@ export default function CollectionMenu({ onClose }: CollectionMenuProps) {
         </div>
       </div>
 
-      <style>{`
-        @keyframes pop-in {
-          0% { transform: scale(0.9); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-pop-in {
-          animation: pop-in 300ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
-        }
-      `}</style>
-    </div>
+      {selectedMon && (
+        <CollectionCharacterModal
+          mon={selectedMon}
+          onClose={() => setSelectedMon(null)}
+        />
+      )}
+    </FullscreenOverlay>
   );
 }

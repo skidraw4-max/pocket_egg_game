@@ -1,228 +1,292 @@
 /**
- * ChatBubble.tsx
- * 반려몬 키워드 대화 컴포넌트
- * 말풍선 탭 → 텍스트 입력창 표시 → 키워드 매칭 응답 말풍선
+ * ChatBubble.tsx — 선택형 대화 (입력 제거, 1~4단계)
  */
-import { useState, useRef, useEffect } from 'react';
-import { getChatResponse } from '@/lib/chatKeywords';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  type ChatChoice,
+  type ChatChoiceContext,
+  type ChatLinkAction,
+  type ResolvedChat,
+  CHAT_DAILY_LIMIT,
+  canUseChatDialogue,
+  getChatCapResponse,
+  getChoicesForContext,
+  getChatRemainingToday,
+  resolveBranchChoice,
+  resolveChoice,
+  getChoiceById,
+} from '@/lib/chatChoices';
+import type { GameState } from '@/lib/gameState';
+
+type BubbleMode = 'bubble' | 'choices' | 'branch' | 'response';
 
 interface ChatBubbleProps {
   petName: string;
-  defaultText?: string;       // 기본 말풍선 텍스트 (감정 말풍선)
-  onClose?: () => void;       // 닫기 콜백
-  onMoodEffect?: (delta: number) => void; // 기분 수치 변화 콜백
+  defaultText?: string;
+  flashText?: string | null;
+  gameState: GameState;
+  chatContext: ChatChoiceContext;
+  onApplyDialogue: (moodDelta?: number) => boolean;
+  onChatAction?: (action: ChatLinkAction) => void;
+  onClose?: () => void;
 }
 
-export default function ChatBubble({ petName, defaultText, onClose, onMoodEffect }: ChatBubbleProps) {
-  const [mode, setMode] = useState<'bubble' | 'input' | 'response'>('bubble');
-  const [inputText, setInputText] = useState('');
+const ACTION_LABELS: Record<ChatLinkAction, string> = {
+  feed: '🍖 먹이 주러 가기',
+  play: '🎾 놀이 목록 열기',
+  play_ball: '⚽ 공놀이 하러 가기',
+  play_puzzle: '⭐ 퍼즐 하러 가기',
+  play_ribbon: '🎀 리듬 게임 열기',
+  clean: '🛁 목욕시키기',
+  sleep: '🌙 재우러 가기',
+  decor: '🏠 방 꾸미러 가기',
+};
+
+export default function ChatBubble({
+  petName,
+  defaultText,
+  flashText,
+  gameState,
+  chatContext,
+  onApplyDialogue,
+  onChatAction,
+  onClose,
+}: ChatBubbleProps) {
+  const [mode, setMode] = useState<BubbleMode>('bubble');
   const [responseText, setResponseText] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [pendingAction, setPendingAction] = useState<ChatLinkAction | undefined>();
+  const [branchParentId, setBranchParentId] = useState<string | null>(null);
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 입력 모드 전환 시 포커스
-  useEffect(() => {
-    if (mode === 'input') {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [mode]);
+  const choices = useMemo(() => getChoicesForContext(chatContext), [chatContext]);
+  const branchParent = branchParentId ? getChoiceById(branchParentId) : null;
+  const remaining = getChatRemainingToday(gameState);
 
-  // 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
       if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
     };
   }, []);
 
-  const handleBubbleClick = () => {
-    setMode('input');
-  };
-
-  const handleSubmit = () => {
-    const trimmed = inputText.trim();
-    const resp = getChatResponse(trimmed, petName);
-    setResponseText(resp.text);
-    setInputText('');
+  const showResponse = (resolved: ResolvedChat) => {
+    setResponseText(resolved.text);
+    setPendingAction(resolved.action);
     setMode('response');
-
-    // 기분 수치 효과 적용
-    if (resp.moodEffect && onMoodEffect) {
-      onMoodEffect(resp.moodEffect);
-    }
-
-    // 5초 후 기본 말풍선으로 복귀
+    setBranchParentId(null);
+    if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
     responseTimerRef.current = setTimeout(() => {
       setMode('bubble');
       setResponseText('');
-    }, 5000);
+      setPendingAction(undefined);
+    }, 6000);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit();
+  const handleBubbleClick = () => {
+    if (flashText) return;
+    if (!canUseChatDialogue(gameState)) {
+      showResponse(getChatCapResponse(petName));
+      return;
     }
-    if (e.key === 'Escape') {
-      setMode('bubble');
-      setInputText('');
-    }
+    setMode('choices');
   };
 
   const handleClose = () => {
     setMode('bubble');
-    setInputText('');
     setResponseText('');
+    setPendingAction(undefined);
+    setBranchParentId(null);
     if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
     onClose?.();
   };
 
-  // 기본 말풍선 (감정 텍스트 또는 대화 유도 텍스트)
-  const bubbleText = defaultText || '말 걸어줘요! 💬';
+  const commitDialogue = (resolved: ResolvedChat) => {
+    const ok = onApplyDialogue(resolved.moodEffect);
+    if (!ok) {
+      showResponse(getChatCapResponse(petName));
+      return;
+    }
+    showResponse(resolved);
+  };
+
+  const handleChoicePick = (choice: ChatChoice) => {
+    if (choice.branches && choice.branches.length > 0) {
+      setBranchParentId(choice.id);
+      setMode('branch');
+      return;
+    }
+    commitDialogue(resolveChoice(choice.id, petName));
+  };
+
+  const handleBranchPick = (branchId: string) => {
+    if (!branchParentId) return;
+    commitDialogue(resolveBranchChoice(branchParentId, branchId, petName));
+  };
+
+  const handleActionClick = () => {
+    if (pendingAction && onChatAction) {
+      onChatAction(pendingAction);
+    }
+    handleClose();
+  };
+
+  const bubbleText = flashText || defaultText || '말 걸어줘요! 💬';
+  const isFlash = Boolean(flashText);
 
   return (
     <div className="relative flex flex-col items-center" style={{ zIndex: 20 }}>
 
-      {/* === 기본 말풍선 모드 === */}
       {mode === 'bubble' && (
         <button
+          type="button"
           onClick={handleBubbleClick}
-          className="relative px-5 py-3 shadow-lg transition-transform active:scale-95"
+          className={`relative px-5 py-3 shadow-lg transition-transform active:scale-95 ${isFlash ? 'animate-response-pop' : ''}`}
           style={{
-            background: 'rgba(255,255,255,0.97)',
+            background: isFlash
+              ? 'linear-gradient(135deg, rgba(255,240,245,0.98), rgba(255,255,255,0.98))'
+              : 'rgba(255,255,255,0.97)',
             borderRadius: '50% / 40%',
-            border: '2px solid rgba(167,139,250,0.4)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+            border: isFlash ? '2px solid rgba(236,72,153,0.45)' : '2px solid rgba(167,139,250,0.4)',
+            boxShadow: isFlash ? '0 6px 24px rgba(236,72,153,0.18)' : '0 4px 20px rgba(0,0,0,0.12)',
             whiteSpace: 'nowrap',
             cursor: 'pointer',
           }}
           title="탭하여 대화하기"
         >
-          <span className="text-sm font-bold" style={{ color: '#7C3AED', fontFamily: 'Nunito, sans-serif' }}>
+          <span className="text-sm font-bold" style={{
+            color: isFlash ? '#DB2777' : '#7C3AED',
+            fontFamily: 'Nunito, sans-serif',
+          }}>
             {bubbleText}
           </span>
-          {/* 말풍선 꼬리 */}
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
             style={{ background: 'rgba(255,255,255,0.97)', boxShadow: '2px 2px 4px rgba(0,0,0,0.06)' }} />
-          {/* 대화 힌트 아이콘 */}
-          <span className="absolute -top-1 -right-1 text-xs bg-purple-500 text-white rounded-full w-4 h-4 flex items-center justify-center"
-            style={{ fontSize: '9px' }}>💬</span>
+          {!isFlash && (
+            <span className="absolute -top-1 -right-1 text-xs bg-purple-500 text-white rounded-full w-4 h-4 flex items-center justify-center"
+              style={{ fontSize: '9px' }}>💬</span>
+          )}
         </button>
       )}
 
-      {/* === 텍스트 입력 모드 === */}
-      {mode === 'input' && (
+      {(mode === 'choices' || mode === 'branch') && (
         <div
-          className="relative shadow-xl"
+          className="relative shadow-xl animate-response-pop"
           style={{
             background: 'rgba(255,255,255,0.98)',
             borderRadius: '20px',
             border: '2px solid rgba(167,139,250,0.6)',
             boxShadow: '0 8px 32px rgba(124,58,237,0.15)',
             padding: '10px 12px',
-            minWidth: '220px',
+            minWidth: '240px',
             maxWidth: '280px',
           }}
         >
-          {/* 입력창 헤더 */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold" style={{ color: '#7C3AED' }}>
-              💬 {petName}에게 말하기
+              {mode === 'branch' ? `💬 ${branchParent?.label ?? '선택'}` : `💬 ${petName}에게 말하기`}
             </span>
             <button
+              type="button"
               onClick={handleClose}
               className="text-gray-400 hover:text-gray-600 text-xs ml-2"
-              style={{ lineHeight: 1 }}
             >✕</button>
           </div>
 
-          {/* 텍스트 입력 */}
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="말을 걸어봐요..."
-              maxLength={30}
-              className="flex-1 text-sm outline-none bg-transparent"
-              style={{
-                color: '#374151',
-                fontFamily: 'Nunito, sans-serif',
-                border: 'none',
-                borderBottom: '1.5px solid rgba(167,139,250,0.4)',
-                paddingBottom: '2px',
-              }}
-            />
+          {mode === 'branch' && branchParent?.branches && (
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {branchParent.branches.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => handleBranchPick(b.id)}
+                  className="min-h-[44px] py-2 px-2 rounded-xl text-[11px] font-bold text-purple-800 bg-purple-50 border border-purple-200 active:scale-95 transition-transform"
+                >
+                  <span className="block text-base mb-0.5">{b.icon}</span>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === 'choices' && (
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {choices.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleChoicePick(c)}
+                  className="min-h-[44px] py-2 px-2 rounded-xl text-[11px] font-bold text-warm-brown bg-cream border border-purple-100 active:scale-95 transition-transform"
+                >
+                  <span className="block text-base mb-0.5">{c.icon}</span>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[9px] text-center text-sub-brown">
+            오늘 대화 {remaining}/{CHAT_DAILY_LIMIT}
+          </p>
+
+          {mode === 'branch' && (
             <button
-              onClick={handleSubmit}
-              disabled={!inputText.trim()}
-              className="text-white text-xs font-bold px-3 py-1.5 rounded-full transition-opacity disabled:opacity-40"
-              style={{
-                background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)',
-                minWidth: '40px',
-              }}
+              type="button"
+              onClick={() => setMode('choices')}
+              className="w-full mt-2 text-[10px] text-purple-600 font-bold py-1"
             >
-              전송
+              ← 주제 다시 고르기
             </button>
-          </div>
+          )}
 
-          {/* 키워드 힌트 */}
-          <div className="mt-2 flex flex-wrap gap-1">
-            {['이름이 뭐야?', '좋아해', '배고파?', '같이 놀자'].map(hint => (
-              <button
-                key={hint}
-                onClick={() => { setInputText(hint); inputRef.current?.focus(); }}
-                className="text-[10px] px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(167,139,250,0.15)',
-                  color: '#7C3AED',
-                  border: '1px solid rgba(167,139,250,0.3)',
-                }}
-              >
-                {hint}
-              </button>
-            ))}
-          </div>
-
-          {/* 말풍선 꼬리 */}
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
             style={{ background: 'rgba(255,255,255,0.98)', boxShadow: '2px 2px 4px rgba(0,0,0,0.06)' }} />
         </div>
       )}
 
-      {/* === 응답 말풍선 모드 === */}
       {mode === 'response' && (
-        <button
-          onClick={handleBubbleClick}
-          className="relative px-5 py-3 shadow-lg transition-transform active:scale-95 animate-response-pop"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,233,254,0.98))',
-            borderRadius: '50% / 40%',
-            border: '2px solid rgba(167,139,250,0.5)',
-            boxShadow: '0 6px 24px rgba(124,58,237,0.2)',
-            whiteSpace: 'nowrap',
-            maxWidth: '240px',
-            cursor: 'pointer',
-          }}
-        >
-          <span className="text-sm font-bold" style={{
-            color: '#5B21B6',
-            fontFamily: 'Nunito, sans-serif',
-            whiteSpace: 'normal',
-            display: 'block',
-            textAlign: 'center',
-            lineHeight: '1.4',
-          }}>
-            {responseText}
-          </span>
-          {/* 말풍선 꼬리 */}
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+        <div className="flex flex-col items-center gap-2 max-w-[260px]">
+          <div
+            className="relative px-5 py-3 shadow-lg animate-response-pop"
             style={{
-              background: 'rgba(237,233,254,0.98)',
-              boxShadow: '2px 2px 4px rgba(0,0,0,0.06)',
-            }} />
-        </button>
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(237,233,254,0.98))',
+              borderRadius: '50% / 40%',
+              border: '2px solid rgba(167,139,250,0.5)',
+              boxShadow: '0 6px 24px rgba(124,58,237,0.2)',
+            }}
+          >
+            <span className="text-sm font-bold block text-center leading-relaxed" style={{
+              color: '#5B21B6',
+              fontFamily: 'Nunito, sans-serif',
+            }}>
+              {responseText}
+            </span>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+              style={{
+                background: 'rgba(237,233,254,0.98)',
+                boxShadow: '2px 2px 4px rgba(0,0,0,0.06)',
+              }} />
+          </div>
+
+          {pendingAction && onChatAction && (
+            <button
+              type="button"
+              onClick={handleActionClick}
+              className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-purple-400 to-pink-400 text-white text-xs font-bold active:scale-95 transition-transform"
+            >
+              {ACTION_LABELS[pendingAction]}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (canUseChatDialogue(gameState)) setMode('choices');
+              else handleClose();
+            }}
+            className="text-[10px] text-purple-600 font-bold py-1"
+          >
+            {canUseChatDialogue(gameState) ? '다시 대화하기' : '닫기'}
+          </button>
+        </div>
       )}
 
       <style>{`
@@ -238,3 +302,5 @@ export default function ChatBubble({ petName, defaultText, onClose, onMoodEffect
     </div>
   );
 }
+
+export type { ChatLinkAction, ChatChoiceContext };
