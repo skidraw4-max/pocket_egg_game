@@ -121,6 +121,22 @@ export function useFirebaseSync(state: GameState | null) {
         if (!data.iapPurchases || typeof data.iapPurchases !== 'object' || Array.isArray(data.iapPurchases)) data.iapPurchases = {};
         if (!('eggColor' in data)) (data as GameState).eggColor = null;
         if (!('gachaEgg' in data)) (data as GameState).gachaEgg = null;
+        if (typeof (data as GameState).lastSpecialActionAt !== 'number') {
+          (data as GameState).lastSpecialActionAt = 0;
+        }
+        // friendCoins 노드와 gameState.friendCoins 중 높은 값으로 통일
+        try {
+          const coinSnap = await get(ref(db, `players/${uid}/friendCoins`));
+          const cloudCoins = coinSnap.exists() ? (coinSnap.val() as number) : 0;
+          data.friendCoins = Math.max(data.friendCoins ?? 0, cloudCoins ?? 0);
+          // 노드도 동일 값으로 맞춰 상점/소셜 잔액 불일치 방지
+          await set(ref(db, `players/${uid}/friendCoins`), data.friendCoins);
+        } catch {
+          // ignore coin merge errors
+        }
+        if (typeof data._savedAt !== 'number') {
+          data._savedAt = data.lastSaveTime ?? Date.now();
+        }
         return data;
       }
     } catch (e) {
@@ -326,6 +342,16 @@ export function useFirebaseSync(state: GameState | null) {
     await runTransaction(coinRef, (current) => (current ?? 0) + amount);
   }, []);
 
+  /** 상점 지출 등으로 친구 코인 잔액을 Firebase에 절대값으로 맞춤 */
+  const setRemoteFriendCoins = useCallback(async (amount: number) => {
+    if (!uid) return;
+    try {
+      await set(ref(db, `players/${uid}/friendCoins`), Math.max(0, Math.floor(amount)));
+    } catch (e) {
+      console.warn('[Firebase] setRemoteFriendCoins 실패:', e);
+    }
+  }, [uid]);
+
   // ── 10. 친구 수 달성 보너스 ──────────────────
   const checkFriendCountBonus = useCallback(async (targetUid: string) => {
     const snap = await get(ref(db, `friends/${targetUid}`));
@@ -437,6 +463,7 @@ export function useFirebaseSync(state: GameState | null) {
     removeFriend,
     copyMyGameId,
     addFriendCoins,
+    setRemoteFriendCoins,
     linkGoogleAccount,
     signInWithGoogleForRestore,
   };

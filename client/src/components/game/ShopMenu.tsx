@@ -435,7 +435,17 @@ export default function ShopMenu({ onClose }: ShopMenuProps) {
       return;
     }
 
-    showToast(`${item.name} 구매 완료! 배경이 적용됐어요 🎉`, 'success');
+    const toastMsg =
+      item.type === 'wallpaper'
+        ? `${item.name} 구매 완료! 배경이 적용됐어요 🎉`
+        : item.type === 'food'
+          ? `${item.name} 구매 완료! 인벤토리에 추가됐어요 🍽️`
+          : item.type === 'toy'
+            ? `${item.name} 구매 완료! 이제 놀아줄 수 있어요 🎾`
+            : item.type === 'decor'
+              ? `${item.name} 구매 완료! 방에 배치됐어요 🏠`
+              : `${item.name} 구매 완료! 🎉`;
+    showToast(toastMsg, 'success');
   };
 
   const handleExchange = (exchange: FragmentExchangeDef) => {

@@ -3,7 +3,18 @@
     "players": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        "gameState": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "profile": {
+          ".write": "auth != null && auth.uid === $uid"
+        },
+        "friendCoins": {
+          ".write": "auth != null"
+        },
+        "friendCountBonus": {
+          ".write": "auth != null"
+        }
       }
     },
     "ranking": {
@@ -17,6 +28,16 @@
         "$visitorUid": {
           ".read": "auth != null && (auth.uid === $targetUid || auth.uid === $visitorUid)",
           ".write": "auth != null && auth.uid === $visitorUid"
+        }
+      }
+    },
+    "visitLog": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$targetUid": {
+          "$date": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
         }
       }
     },
